@@ -51,7 +51,7 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS += -g -std=c99 -funwind-tables -O3 -DBCMHOST -fvisibility=hidden -include include/android_debug.h
 #LOCAL_CFLAGS += -DNO_INIT_CONSTRUCTOR
 
-LOCAL_LDLIBS := -ldl -llog
+LOCAL_LDLIBS := -lGLESv1_CM  -ldl -llog
 
-include $(BUILD_STATIC_LIBRARY)
+include $(BUILD_SHARED_LIBRARY)
 
