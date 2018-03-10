@@ -7,7 +7,6 @@ typedef enum {
 	STAGE_NONE = 0,
 	STAGE_PUSH,
 	STAGE_POP,
-	STAGE_CALLLIST,
 	STAGE_GLCALL,
     STAGE_RENDER,
 	STAGE_FOG,
@@ -16,6 +15,7 @@ typedef enum {
     STAGE_ACTIVETEX,
 	STAGE_BINDTEX,
 	STAGE_RASTER,
+    STAGE_BITMAP,
 	STAGE_MATERIAL,
     STAGE_COLOR_MATERIAL,
 	STAGE_LIGHT,
@@ -29,11 +29,10 @@ typedef enum {
 	STAGE_LAST
 } liststage_t;
 
-static int StageExclusive[STAGE_LAST] = {
+static int StageExclusive[] = {
 	0, 	// STAGE_NONE
 	1,	// STAGE_PUSH
 	1,  // STAGE_POP
-	1, 	// STAGE_CALLLIST
 	0,  // STAGE_GLCALL
     1,  // STAGE_RENDER
 	1, 	// STAGE_FOG
@@ -42,6 +41,7 @@ static int StageExclusive[STAGE_LAST] = {
     1,  // STAGE_ACTIVETEX
 	1,  // STAGE_BINDTEX
 	1,  // STAGE_RASTER
+    0,  // STAGE_BITMAP
 	0,  // STAGE_MATERIAL
     1,  // STAGE_COLOR_MATERIAL
 	0,  // STAGE_LIGHT
@@ -52,6 +52,7 @@ static int StageExclusive[STAGE_LAST] = {
 	1,  // STAGE_POLYGON
 	1,  // STAGE_DRAW
     1,  // STAGE_POSTDRAW   (used for "pending", i.e. post glEnd(), in case a similar glBegin occurs)
+    0   // STAGE_LAST
 };
 
 typedef struct {
@@ -87,6 +88,8 @@ typedef struct {
 	GLfloat ymove;
 	GLsizei width;
 	GLsizei height;
+	GLsizei nwidth;
+	GLsizei nheight;
 	GLfloat xorig;
 	GLfloat yorig;
 	GLfloat zoomx;
@@ -107,15 +110,35 @@ typedef struct _call_list_t {
     packed_call_t **calls;
 } call_list_t;
 
+typedef struct {
+	GLsizei width;
+	GLsizei height;
+	GLfloat xorig;
+	GLfloat yorig;
+	GLfloat	xmove;
+	GLfloat ymove;
+    GLubyte *bitmap;
+} bitmap_list_t;
+
+typedef struct {
+    int         count;
+    int         cap;
+    bitmap_list_t *list;
+    int     *shared;
+} bitmaps_t;
+
 typedef struct _renderlist_t {
     unsigned long len;
     unsigned long ilen;
     unsigned long cap;
     GLenum mode;
     GLenum mode_init;		// initial requested mode
+    int    mode_dimension;
     GLfloat lastNormal[3];
     GLfloat lastColors[4];
     GLfloat lastSecondaryColors[4];
+    GLfloat lastFogCoord;
+    int use_glstate;
 
     int lastColorsSet;
 
@@ -127,12 +150,25 @@ typedef struct _renderlist_t {
     GLfloat *normal;
     GLfloat *color;
     GLfloat *secondary;
+    GLfloat *fogcoord;
     GLfloat *tex[MAX_TEX];
+    int      vert_stride;
+    int      normal_stride;
+    int      color_stride;
+    int      secondary_stride;
+    int      fogcoord_stride;
+    int      tex_stride[MAX_TEX];
     int *shared_indices;
     GLushort *indices;
     unsigned int indice_cap;
+    int maxtex;
+    GLenum  merger_mode;
+    int     cur_ivert;          // used by glBegin/glEnd merger.
+    int     cur_istart;
 	
 	rasterlist_t *raster;
+
+    bitmaps_t *bitmaps;
 	
 	liststage_t	stage;
 	
@@ -181,16 +217,15 @@ typedef struct _renderlist_t {
     GLboolean open;
 } renderlist_t;
 
+KHASH_MAP_INIT_INT(gllisthead, renderlist_t*)
+
 #define DEFAULT_CALL_LIST_CAPACITY 20
 #define DEFAULT_RENDER_LIST_CAPACITY 64
 
-renderlist_t* recycle_renderlist(renderlist_t* list);
-#define NewDrawStage(l, m) if(globals4es.mergelist \
-            && ((l->prev && isempty_renderlist(l) && l->prev->open && l->prev->mode==mode && l->prev->mode_init==mode)  \
-            || (l->stage==STAGE_POSTDRAW && l->open && l->mode==mode && l->mode_init==mode))  && \
-            mode!=GL_POLYGON && mode!=GL_LINE_STRIP && mode!=GL_LINE_LOOP && \
-            mode!=GL_TRIANGLE_FAN && mode!=GL_TRIANGLE_STRIP && mode!=GL_QUAD_STRIP) \
-                l=recycle_renderlist(l); else NewStage(l, STAGE_DRAW)
+int rendermode_dimensions(GLenum mode);
+renderlist_t* recycle_renderlist(renderlist_t* list, GLenum mode);
+renderlist_t* NewDrawStage(renderlist_t* l, GLenum m);
+                
 #define NewStage(l, s) if (l->stage+StageExclusive[l->stage] > s) {l = extend_renderlist(l);} l->stage = s
 
 renderlist_t* GetFirst(renderlist_t* list);
@@ -205,18 +240,26 @@ bool isempty_renderlist(renderlist_t *list);
 void rlActiveTexture(renderlist_t *list, GLenum texture );
 void rlBindTexture(renderlist_t *list, GLenum target, GLuint texture);
 void rlColor4f(renderlist_t *list, GLfloat r, GLfloat g, GLfloat b, GLfloat a) FASTMATH;
+void rlColor4fv(renderlist_t *list, GLfloat* v) FASTMATH;
 void rlMaterialfv(renderlist_t *list, GLenum face, GLenum pname, const GLfloat * params);
 void rlLightfv(renderlist_t *list, GLenum which, GLenum pname, const GLfloat * params);
 void rlTexGenfv(renderlist_t *list, GLenum coord, GLenum pname, const GLfloat * params);
 void rlTexEnvfv(renderlist_t *list, GLenum target, GLenum pname, const GLfloat * params);
 void rlTexEnviv(renderlist_t *list, GLenum target, GLenum pname, const GLint * params);
 void rlNormal3f(renderlist_t *list, GLfloat x, GLfloat y, GLfloat z) FASTMATH;
+void rlNormal3fv(renderlist_t *list, GLfloat* v) FASTMATH;
 void rlPushCall(renderlist_t *list, packed_call_t *data);
-void rlTexCoord4f(renderlist_t *list, GLfloat s, GLfloat t, GLfloat r, GLfloat q) FASTMATH;
 void rlMultiTexCoord4f(renderlist_t *list, GLenum texture, GLfloat s, GLfloat t, GLfloat r, GLfloat q) FASTMATH;
+void rlMultiTexCoord2fv(renderlist_t *list, GLenum texture, GLfloat* v) FASTMATH;
+void rlMultiTexCoord4fv(renderlist_t *list, GLenum texture, GLfloat* v) FASTMATH;
 void rlVertex4f(renderlist_t *list, GLfloat x, GLfloat y, GLfloat z, GLfloat w) FASTMATH;
+void rlVertex3fv(renderlist_t *list, GLfloat* v) FASTMATH;
+void rlVertex4fv(renderlist_t *list, GLfloat* v) FASTMATH;
 void rlSecondary3f(renderlist_t *list, GLfloat r, GLfloat g, GLfloat b) FASTMATH;
 void rlRasterOp(renderlist_t *list, int op, GLfloat x, GLfloat y, GLfloat z) FASTMATH;
 void rlFogOp(renderlist_t *list, int op, const GLfloat* v);
 void rlPointParamOp(renderlist_t *list, int op, const GLfloat* v);
+void rlFogCoordf(renderlist_t *list, GLfloat coord);
+void rlEnd(renderlist_t *list);
+
 #endif

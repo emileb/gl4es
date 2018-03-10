@@ -9,7 +9,7 @@ typedef struct {
     GLfloat         specular[4];
     GLfloat         constantAttenuation, linearAttenuation, quadraticAttenuation;
     GLfloat         position[4];
-    GLfloat         spotDirection[4];  // It's only 3 in fact, because it's a direction
+    GLfloat         spotDirection[3];  // It's only 3 in fact, because it's a direction
     GLfloat         spotExponent;
     GLfloat         spotCutoff;
 } light_t;
@@ -18,6 +18,8 @@ typedef struct {
     light_t     lights[MAX_LIGHT];
     GLfloat     ambient[4];
     GLboolean   two_side;
+    GLboolean   separate_specular;
+    GLboolean   local_viewer;
 } light_state_t;
 
 typedef struct {

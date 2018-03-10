@@ -1,7 +1,9 @@
+#ifndef NOEGL
 #include <EGL/egl.h>
+#endif
 #include <stdbool.h>
 #include <stdlib.h>
-#ifndef ANDROID
+#ifndef NOX11
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #endif
@@ -125,9 +127,23 @@
 
 #define GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB 0x20B2
 
+#define GLX_SWAP_INTERVAL_EXT           0x20F1
+#define GLX_MAX_SWAP_INTERVAL_EXT       0x20F2
+
+#define GLX_CONTEXT_MAJOR_VERSION_ARB           0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB           0x2092
+#define GLX_CONTEXT_FLAGS_ARB                   0x2094
+#define GLX_CONTEXT_PROFILE_MASK_ARB            0x9126
+#define GLX_CONTEXT_DEBUG_BIT_ARB               0x0001
+#define GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB  0x0002
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB        0x00000001
+#define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+#define GLX_CONTEXT_ES_PROFILE_BIT_EXT		    0x00000004
+#define GLX_CONTEXT_ES2_PROFILE_BIT_EXT		    0x00000004
+
 
 typedef int GLXDrawable;
-#ifndef ANDROID
+#ifndef NOX11
 struct __GLXContextRec {
     Display *display;
     GLXDrawable drawable;
@@ -143,14 +159,16 @@ struct __GLXContextRec {
     int depth;
     int stencil;
     int rbits, gbits, bbits, abits;
+    int es2only;
     void* glstate;
+    void* shared;
     int contextType;    // 0 = Window, 1 = PBuffer, 2 = PixmapBuffer, 3 = Emulated PixmapBuffer (with PBuffer)
 };
 typedef struct __GLXContextRec *GLXContext;
 
 typedef XID GLXPbuffer;
 typedef XID GLXPixmap;
-#endif //ANDROID
+#endif //NOX11
 struct __GLXFBConfigRec {
     int visualType;
     int transparentType;
@@ -205,7 +223,7 @@ struct __GLXFBConfigRec {
     double minAlpha, maxAlpha;
 };
 typedef struct __GLXFBConfigRec *GLXFBConfig;
-#ifndef ANDROID
+#ifndef NOX11
 GLXContext gl4es_glXCreateContext(Display *dpy,
                             XVisualInfo *visual,
                             GLXContext shareList,
@@ -216,11 +234,11 @@ GLXContext gl4es_glXCreateContextAttribsARB(Display *display, GLXFBConfig config
                                       const int *attrib_list);
 
 void gl4es_glXSwapIntervalEXT(Display *display, int drawable, int interval);
-#endif //ANDROID
+#endif //NOX11
 void gl4es_glXSwapInterval(int interval);
 
 // GLX 1.1?
-#ifndef ANDROID
+#ifndef NOX11
 Bool gl4es_glXIsDirect(Display * display, GLXContext ctx);
 Bool gl4es_glXMakeCurrent(Display *display, int drawable, GLXContext context);
 Bool gl4es_glXQueryExtension(Display *display, int *errorBase, int *eventBase);
@@ -228,18 +246,18 @@ Bool gl4es_glXQueryVersion(Display *display, int *major, int *minor);
 const char *gl4es_glXGetClientString(Display *display, int name);
 const char *gl4es_glXQueryExtensionsString(Display *display, int screen);
 const char *gl4es_glXQueryServerString(Display *display, int screen, int name);
-#endif //ANDROID
+#endif //NOX11
 GLXDrawable gl4es_glXGetCurrentDrawable();
-#ifndef ANDROID
+#ifndef NOX11
 int gl4es_glXGetConfig(Display *display, XVisualInfo *visual, int attribute, int *value);
 void gl4es_glXCopyContext(Display *display, GLXContext src, GLXContext dst, GLuint mask);
 void gl4es_glXDestroyContext(Display *display, GLXContext ctx);
 void gl4es_glXSwapBuffers(Display *display, int drawable);
 void gl4es_glXUseXFont(Font font, int first, int count, int listBase);
-#endif //ANDROID
+#endif //NOX11
 void gl4es_glXWaitGL();
 void gl4es_glXWaitX();
-#ifndef ANDROID
+#ifndef NOX11
 XVisualInfo *gl4es_glXChooseVisual(Display *display, int screen, int *attributes);
 int gl4es_glXQueryDrawable(Display *dpy, GLXDrawable draw, int attribute,	unsigned int *value);
 
@@ -268,4 +286,6 @@ GLXPixmap gl4es_glXCreatePixmap(Display * dpy, GLXFBConfig config, Pixmap pixmap
 void gl4es_glXDestroyPixmap(Display *display, void *pixmap);
 GLXPixmap gl4es_glXCreateGLXPixmap(Display *display, XVisualInfo * visual, Pixmap pixmap);
 void gl4es_glXDestroyGLXPixmap(Display *display, void *pixmap);
-#endif //ANDROID
+
+GLXContext gl4es_glXCreateContextAttribs(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list);
+#endif //NOX11

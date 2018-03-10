@@ -2,6 +2,13 @@
 #include "debug.h"
 #include "../glx/hardext.h"
 
+//#define DEBUG
+#ifdef DEBUG
+#define DBG(a) a
+#else
+#define DBG(a)
+#endif
+
 static GLuint lastbuffer = 1;
 
 // Utility function to bind / unbind a particular buffer
@@ -56,7 +63,7 @@ int buffer_target(GLenum target) {
 }
 
 void gl4es_glGenBuffers(GLsizei n, GLuint * buffers) {
-//printf("glGenBuffers(%i, %p)\n", n, buffers);
+DBG(printf("glGenBuffers(%i, %p)\n", n, buffers);)
 	noerrorShim();
     if (n<1) {
 		errorShim(GL_INVALID_VALUE);
@@ -68,19 +75,13 @@ void gl4es_glGenBuffers(GLsizei n, GLuint * buffers) {
 }
 
 void gl4es_glBindBuffer(GLenum target, GLuint buffer) {
-//printf("glBindBuffer(%s, %u)\n", PrintEnum(target), buffer);
-    if (glstate->gl_batch || glstate->list.pending)
+DBG(printf("glBindBuffer(%s, %u)\n", PrintEnum(target), buffer);)
+    if (glstate->list.pending)
          flush();
 
    	khint_t k;
    	int ret;
 	khash_t(buff) *list = glstate->buffers;
-	if (! list) {
-		list = glstate->buffers = kh_init(buff);
-		// segfaults if we don't do a single put
-		kh_put(buff, list, 1, &ret);
-		kh_del(buff, list, 1);
-	}
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return;
@@ -112,7 +113,7 @@ void gl4es_glBindBuffer(GLenum target, GLuint buffer) {
 }
 
 void gl4es_glBufferData(GLenum target, GLsizeiptr size, const GLvoid * data, GLenum usage) {
-//printf("glBufferData(%s, %i, %p, %s)\n", PrintEnum(target), size, data, PrintEnum(usage));
+DBG(printf("glBufferData(%s, %i, %p, %s)\n", PrintEnum(target), size, data, PrintEnum(usage));)
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return;
@@ -140,7 +141,7 @@ void gl4es_glBufferData(GLenum target, GLsizeiptr size, const GLvoid * data, GLe
 }
 
 void gl4es_glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid * data) {
-//printf("glBufferSubData(%s, %p, %i, %p)\n", PrintEnum(target), offset, size, data);
+DBG(printf("glBufferSubData(%s, %p, %i, %p)\n", PrintEnum(target), offset, size, data);)
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return;
@@ -148,20 +149,25 @@ void gl4es_glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, cons
     glbuffer_t *buff = getbuffer_buffer(target);
     if (buff==NULL) {
 		errorShim(GL_INVALID_OPERATION);
-//        printf("LIBGL: Warning, null buffer for target=0x%04X for glBufferSubData\n", target);
+        DBG(printf("LIBGL: Warning, null buffer for target=0x%04X for glBufferSubData\n", target);)
         return;
     }
 
     if(target==GL_ARRAY_BUFFER)
         VaoSharedClear(glstate->vao);
+
+    if (offset<0 || size<0 || offset+size>buff->size) {
+        errorShim(GL_INVALID_VALUE);
+        return;
+    }
         
-    memcpy(buff->data + offset, data, size);    //TODO, some check maybe?
+    memcpy(buff->data + offset, data, size);
     noerrorShim();
 }
 
 void gl4es_glDeleteBuffers(GLsizei n, const GLuint * buffers) {
-//printf("glDeleteBuffers(%i, %p)\n", n, buffers);
-    if (glstate->gl_batch || glstate->list.pending)
+DBG(printf("glDeleteBuffers(%i, %p)\n", n, buffers);)
+    if (glstate->list.pending)
          flush();
 
     VaoSharedClear(glstate->vao);
@@ -183,6 +189,9 @@ void gl4es_glDeleteBuffers(GLsizei n, const GLuint * buffers) {
                         glstate->vao->pack = NULL;
                     if (glstate->vao->unpack == buff)
                         glstate->vao->unpack = NULL;
+                    for (int j = 0; j < hardext.maxvattrib; j++)
+                        if (glstate->vao->vertexattrib[j].buffer == buff)
+                            glstate->vao->vertexattrib[j].buffer = NULL;
                     if (buff->data) free(buff->data);
                     kh_del(buff, list, k);
                     free(buff);
@@ -194,7 +203,7 @@ void gl4es_glDeleteBuffers(GLsizei n, const GLuint * buffers) {
 }
 
 GLboolean gl4es_glIsBuffer(GLuint buffer) {
-//printf("glIsBuffer(%u)\n", buffer);
+DBG(printf("glIsBuffer(%u)\n", buffer);)
 	khash_t(buff) *list = glstate->buffers;
 	khint_t k;
 	noerrorShim();
@@ -210,7 +219,7 @@ GLboolean gl4es_glIsBuffer(GLuint buffer) {
 
 
 void gl4es_glGetBufferParameteriv(GLenum target, GLenum value, GLint * data) {
-//printf("glGetBufferParameteriv(%s, %s, %p)\n", PrintEnum(target), PrintEnum(value), data);
+DBG(printf("glGetBufferParameteriv(%s, %s, %p)\n", PrintEnum(target), PrintEnum(value), data);)
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return;
@@ -250,7 +259,7 @@ void gl4es_glGetBufferParameteriv(GLenum target, GLenum value, GLint * data) {
 }
 
 void *gl4es_glMapBuffer(GLenum target, GLenum access) {
-//printf("glMapBuffer(%s, %s)\n", PrintEnum(target), PrintEnum(access));
+DBG(printf("glMapBuffer(%s, %s)\n", PrintEnum(target), PrintEnum(access));)
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return (void*)NULL;
@@ -269,7 +278,7 @@ void *gl4es_glMapBuffer(GLenum target, GLenum access) {
 }
 
 GLboolean gl4es_glUnmapBuffer(GLenum target) {
-//printf("glUnmapBuffer(%s)\n", PrintEnum(target));
+DBG(printf("glUnmapBuffer(%s)\n", PrintEnum(target));)
     if(glstate->list.compiling) {errorShim(GL_INVALID_OPERATION); return GL_FALSE;}
     if(glstate->list.active)
         flush();
@@ -294,7 +303,7 @@ GLboolean gl4es_glUnmapBuffer(GLenum target) {
 }
 
 void gl4es_glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, GLvoid * data) {
-//printf("glGetBufferSubData(%s, %p, %i, %p)\n", PrintEnum(target), offset, size, data);
+DBG(printf("glGetBufferSubData(%s, %p, %i, %p)\n", PrintEnum(target), offset, size, data);)
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return;
@@ -309,7 +318,7 @@ void gl4es_glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, G
 }
 
 void gl4es_glGetBufferPointerv(GLenum target, GLenum pname, GLvoid ** params) {
-//printf("glGetBufferPointerv(%s, %s, %p)\n", PrintEnum(target), PrintEnum(pname), params);
+DBG(printf("glGetBufferPointerv(%s, %s, %p)\n", PrintEnum(target), PrintEnum(pname), params);)
 	if (!buffer_target(target)) {
 		errorShim(GL_INVALID_ENUM);
 		return;
@@ -358,7 +367,7 @@ void glGetBufferPointervARB(GLenum target, GLenum pname, GLvoid ** params) Alias
 static GLuint lastvao = 1;
 
 void gl4es_glGenVertexArrays(GLsizei n, GLuint *arrays) {
-//printf("glGenVertexArrays(%i, %p)\n", n, arrays);
+DBG(printf("glGenVertexArrays(%i, %p)\n", n, arrays);)
 	noerrorShim();
     if (n<1) {
 		errorShim(GL_INVALID_VALUE);
@@ -369,19 +378,13 @@ void gl4es_glGenVertexArrays(GLsizei n, GLuint *arrays) {
     }
 }
 void gl4es_glBindVertexArray(GLuint array) {
-//printf("glBindVertexArray(%u)\n", array);
-    if (glstate->gl_batch || glstate->list.pending)
+DBG(printf("glBindVertexArray(%u)\n", array);)
+    if (glstate->list.pending)
          flush();
 
    	khint_t k;
    	int ret;
 	khash_t(glvao) *list = glstate->vaos;
-	if (! list) {
-		list = glstate->vaos = kh_init(glvao);
-		// segfaults if we don't do a single put
-		kh_put(glvao, list, 1, &ret);
-		kh_del(glvao, list, 1);
-	}
     // if array = 0 => unbind buffer!
     if (array == 0) {
         // unbind buffer
@@ -394,13 +397,8 @@ void gl4es_glBindVertexArray(GLuint array) {
             k = kh_put(glvao, list, array, &ret);
             glvao = kh_value(list, k) = malloc(sizeof(glvao_t));
             // new vao is binded to nothing
-            memset(glvao, 0, sizeof(glvao_t));
-            /*
-            glstate->vao->vertex = glstate->defaultvbo;
-            glstate->vao->elements = glstate->defaultvbo;
-            glstate->vao->pack = glstate->defaultvbo;
-            glstate->vao->unpack = glstate->defaultvbo;
-            */
+            VaoInit(glvao);
+            // TODO: check if should copy status of current VAO instead of cleanning everything
 
             // just put is number
             glvao->array = array;
@@ -409,11 +407,15 @@ void gl4es_glBindVertexArray(GLuint array) {
         }
         glstate->vao = glvao;
     }
+    // TODO: find a better way to do that, to many useless copying stuff
+    if(glstate->fpe_state)
+        memcpy(glstate->gleshard.wanted, glstate->vao->vertexattrib, MAX_VATTRIB * sizeof(vertexattrib_t));
+
     noerrorShim();
 }
 void gl4es_glDeleteVertexArrays(GLsizei n, const GLuint *arrays) {
-//printf("glDeleteVertexArrays(%i, %p)\n", n, arrays);
-    if (glstate->gl_batch || glstate->list.pending)
+DBG(printf("glDeleteVertexArrays(%i, %p)\n", n, arrays);)
+    if (glstate->list.pending)
          flush();
 
 	khash_t(glvao) *list = glstate->vaos;
@@ -436,7 +438,7 @@ void gl4es_glDeleteVertexArrays(GLsizei n, const GLuint *arrays) {
     noerrorShim();
 }
 GLboolean gl4es_glIsVertexArray(GLuint array) {
-//printf("glIsVertexArray(%u)\n", array);
+DBG(printf("glIsVertexArray(%u)\n", array);)
 	khash_t(glvao) *list = glstate->vaos;
 	khint_t k;
 	noerrorShim();
@@ -468,6 +470,15 @@ void VaoSharedClear(glvao_t *vao) {
     for (int i=0; i<hardext.maxtex; i++)
         vao->tex[i].ptr = NULL;
     vao->shared_arrays = NULL;
+}
+
+void VaoInit(glvao_t *vao) {
+    memset(vao, 0, sizeof(glvao_t));
+    for (int i=0; i<hardext.maxvattrib; i++) {
+        vao->vertexattrib[i].size = 4;
+        vao->vertexattrib[i].type = GL_FLOAT;
+        vao->vertexattrib[i].current[3] = 1.0f;
+    }
 }
 
 //Direct wrapper

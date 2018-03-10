@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "gl.h"
 
 #define p(a) \
     case a: return #a
@@ -7,6 +8,10 @@ const char* PrintEnum(GLenum what) {
     static char fallback[64];
     switch(what)
     {
+        // error
+        p(GL_INVALID_ENUM);
+        p(GL_INVALID_VALUE);
+        p(GL_INVALID_OPERATION);
         // target
         p(GL_TEXTURE_1D);
         p(GL_TEXTURE_2D);
@@ -26,6 +31,7 @@ const char* PrintEnum(GLenum what) {
         p(GL_TEXTURE_CUBE_MAP_POSITIVE_Z);
         p(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z);
         // format
+        p(GL_COLOR_INDEX);
         p(GL_RED);
         p(GL_R);
         p(GL_R3_G3_B2);
@@ -76,6 +82,8 @@ const char* PrintEnum(GLenum what) {
         p(GL_UNSIGNED_SHORT_4_4_4_4_REV);
         p(GL_UNSIGNED_SHORT_5_6_5);
         p(GL_UNSIGNED_SHORT_5_6_5_REV);
+        p(GL_UNSIGNED_INT_8_8_8_8_REV);
+        p(GL_UNSIGNED_INT_8_8_8_8);
         p(GL_FLOAT);
         p(GL_DOUBLE);
         // texture infos
@@ -86,6 +94,7 @@ const char* PrintEnum(GLenum what) {
         p(GL_TEXTURE_INTERNAL_FORMAT);
         // texture pack/unpack
         p(GL_UNPACK_ALIGNMENT);
+        p(GL_PACK_ALIGNMENT);
         // framebuffer
         p(GL_COLOR_ATTACHMENT0);
         p(GL_COLOR_ATTACHMENT1);
@@ -94,6 +103,7 @@ const char* PrintEnum(GLenum what) {
         p(GL_COLOR_ATTACHMENT4);
         p(GL_DEPTH_ATTACHMENT);
         p(GL_STENCIL_ATTACHMENT);
+        p(GL_DEPTH_COMPONENT);
         // VBO
         p(GL_STATIC_DRAW);
         p(GL_READ_WRITE);
@@ -110,6 +120,21 @@ const char* PrintEnum(GLenum what) {
         p(GL_TEXTURE5);
         p(GL_TEXTURE6);
         p(GL_TEXTURE7);
+        p(GL_TEXTURE_WRAP_S);
+        p(GL_TEXTURE_WRAP_T);
+        p(GL_LINEAR);
+        p(GL_NEAREST);
+        p(GL_NEAREST_MIPMAP_NEAREST);
+        p(GL_NEAREST_MIPMAP_LINEAR);
+        p(GL_LINEAR_MIPMAP_NEAREST);
+        p(GL_LINEAR_MIPMAP_LINEAR);
+        p(GL_TEXTURE_MAX_LEVEL);
+        p(GL_TEXTURE_BASE_LEVEL);
+        p(GL_TEXTURE_MIN_FILTER);
+        p(GL_TEXTURE_MAG_FILTER);
+        p(GL_CLAMP_TO_EDGE);
+        p(GL_REPEAT);
+        //p(GL_MIRRORED_REPEAT);
         // mode
         p(GL_POINTS);
         p(GL_LINES);
@@ -131,6 +156,10 @@ const char* PrintEnum(GLenum what) {
         p(GL_SPHERE_MAP);
         p(GL_NORMAL_MAP);
         p(GL_REFLECTION_MAP);
+        p(GL_TEXTURE_GEN_S);
+        p(GL_TEXTURE_GEN_T);
+        p(GL_TEXTURE_GEN_R);
+        p(GL_TEXTURE_GEN_Q);
         // matrix mode
         p(GL_PROJECTION);
         p(GL_MODELVIEW);
@@ -159,8 +188,112 @@ const char* PrintEnum(GLenum what) {
         p(GL_CONSTANT_ATTENUATION);
         p(GL_LINEAR_ATTENUATION);
         p(GL_QUADRATIC_ATTENUATION);
+        // Misc enabled
+        p(GL_LIGHTING);
+        p(GL_NORMALIZE);
+        p(GL_CULL_FACE);
+        p(GL_DEPTH_TEST);
+        p(GL_RESCALE_NORMAL);
+        p(GL_ALPHA_TEST);
+        p(GL_ALPHA_TEST_FUNC);
+        p(GL_BLEND);
+        p(GL_BLEND_SRC);
+        p(GL_BLEND_DST);
+        p(GL_LOGIC_OP_MODE);
+        // uniform type
+        p(GL_FLOAT_VEC2);
+        p(GL_FLOAT_VEC3);
+        p(GL_FLOAT_VEC4);
+        p(GL_INT_VEC2);
+        p(GL_INT_VEC3);
+        p(GL_INT_VEC4);
+        p(GL_BOOL);
+        p(GL_BOOL_VEC2);
+        p(GL_BOOL_VEC3);
+        p(GL_BOOL_VEC4);
+        p(GL_FLOAT_MAT2);
+        p(GL_FLOAT_MAT3);
+        p(GL_FLOAT_MAT4);
+        p(GL_SAMPLER_2D);
+        p(GL_SAMPLER_CUBE);
+        // Shaders
+        p(GL_FRAGMENT_SHADER);
+        p(GL_VERTEX_SHADER);
+        p(GL_MAX_VERTEX_ATTRIBS);
+        p(GL_MAX_VERTEX_UNIFORM_VECTORS);
+        p(GL_MAX_VARYING_VECTORS);
+        p(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+        p(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+        p(GL_MAX_TEXTURE_IMAGE_UNITS);
+        p(GL_MAX_FRAGMENT_UNIFORM_VECTORS);
+        p(GL_SHADER_TYPE);
+        p(GL_DELETE_STATUS);
+        p(GL_LINK_STATUS);
+        p(GL_VALIDATE_STATUS);
+        p(GL_ATTACHED_SHADERS);
+        p(GL_ACTIVE_UNIFORMS);
+        p(GL_ACTIVE_UNIFORM_MAX_LENGTH);
+        p(GL_ACTIVE_ATTRIBUTES);
+        p(GL_ACTIVE_ATTRIBUTE_MAX_LENGTH);
+        p(GL_SHADING_LANGUAGE_VERSION);
+        p(GL_CURRENT_PROGRAM);
+        p(GL_PROGRAM_BINARY_LENGTH);
+        p(GL_NUM_PROGRAM_BINARY_FORMATS);
+        p(GL_PROGRAM_BINARY_FORMATS);
+        // Client State
+        p(GL_VERTEX_ARRAY);
+        p(GL_COLOR_ARRAY);
+        p(GL_NORMAL_ARRAY);
+        p(GL_TEXTURE_COORD_ARRAY);
+        p(GL_SECONDARY_COLOR_ARRAY);
+        p(GL_FOG_COORD_ARRAY);
+        // misc
+        p(GL_NUM_EXTENSIONS);
         default:
             sprintf(fallback, "0x%04X", what);
     }
     return fallback;
+}
+
+const char* PrintEGLError(int onlyerror) {
+#ifdef NOEGL
+    return "";
+#else
+    LOAD_EGL(eglGetError);
+    static char fallback[64];
+    GLenum what = egl_eglGetError();
+    if(onlyerror && what==EGL_SUCCESS)
+        return NULL;
+    switch(what)
+    {
+        p(EGL_SUCCESS);
+        p(EGL_NOT_INITIALIZED);
+        p(EGL_BAD_ACCESS);
+        p(EGL_BAD_ALLOC);
+        p(EGL_BAD_ATTRIBUTE);
+        p(EGL_BAD_CONTEXT);
+        p(EGL_BAD_CONFIG);
+        p(EGL_BAD_CURRENT_SURFACE);
+        p(EGL_BAD_DISPLAY);
+        p(EGL_BAD_SURFACE);
+        p(EGL_BAD_MATCH);
+        p(EGL_BAD_PARAMETER);
+        p(EGL_BAD_NATIVE_PIXMAP);
+        p(EGL_BAD_NATIVE_WINDOW);
+        p(EGL_CONTEXT_LOST);
+        default:
+            sprintf(fallback, "0x%04X", what);
+    }
+    return fallback;
+#endif
+}
+
+void CheckGLError(int fwd) {
+    LOAD_GLES(glGetError);
+    GLenum err=gles_glGetError();
+    if(err!=GL_NO_ERROR) {
+        printf("LIBGL: glGetError(): %s\n", PrintEnum(err));
+        if(fwd)
+            errorShim(err);
+    }
 }

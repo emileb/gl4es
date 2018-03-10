@@ -1,8 +1,8 @@
 #include <dlfcn.h>
 //#include <GLES/gl.h>
 #include "gles.h"
+#ifndef NOEGL
 #include <EGL/egl.h>
-#ifdef TEXSTREAM
 #include <EGL/eglext.h>
 #endif
 #include <inttypes.h>
@@ -49,11 +49,11 @@
 #define GL_H
 
 #include "../config.h"
-#include "wrap/es.h"
+#include "wrap/gles.h"
 #include "const.h"
 
 //Typedef for egl to be abble to call LOAD_EGL...
-
+#ifndef NOEGL
 typedef EGLBoolean (*eglBindAPI_PTR)(EGLenum api);
 typedef EGLBoolean (*eglBindTexImage_PTR)(EGLDisplay dpy, EGLSurface surface, EGLint buffer);
 typedef EGLBoolean (*eglChooseConfig_PTR)(EGLDisplay dpy, const EGLint * attrib_list, EGLConfig * configs, EGLint config_size, EGLint * num_config);
@@ -111,6 +111,7 @@ typedef EGLBoolean (*eglQueryStreamKHR_PTR)(EGLDisplay dpy, EGLStreamKHR stream,
 typedef EGLBoolean (*eglQueryStreamTimeKHR_PTR)(EGLDisplay dpy, EGLStreamKHR stream, EGLenum attribute, EGLTimeKHR * value);
 typedef EGLint (*eglWaitSyncKHR_PTR)(EGLDisplay dpy, EGLSyncKHR sync, EGLint flags);
 typedef EGLSurface (*eglCreateStreamProducerSurfaceKHR_PTR)(EGLDisplay dpy, EGLConfig config, EGLStreamKHR stream, const EGLint * attrib_list);
+#endif
 #endif
 
 #include "loader.h"
@@ -206,6 +207,8 @@ const char* PrintEnum(GLenum what);
 
 #define PUSH_IF_COMPILING(name) PUSH_IF_COMPILING_EXT(name, name##_ARG_NAMES)
 
+#define FLUSH_BEGINEND if(glstate->list.pending) flush()
+
 #define ERROR_IN_BEGIN if(glstate->list.begin) {errorShim(GL_INVALID_OPERATION); return;}
 
 static const GLsizei gl_sizeof(GLenum type) {
@@ -242,6 +245,7 @@ static const GLsizei gl_sizeof(GLenum type) {
         case GL_UNSIGNED_BYTE_2_3_3_REV:
         case GL_UNSIGNED_BYTE_3_3_2:
         case GL_DEPTH_COMPONENT:
+        case GL_COLOR_INDEX:
             return 1;
     }
     // formats
@@ -296,6 +300,7 @@ static const GLsizei pixel_sizeof(GLenum format, GLenum type) {
 		case GL_ALPHA:
 		case GL_LUMINANCE:
         case GL_DEPTH_COMPONENT:
+        case GL_COLOR_INDEX:
             width = 1;
             break;
         case GL_RG:
@@ -330,6 +335,7 @@ static const GLboolean pixel_hasalpha(GLenum format) {
     case GL_RGBA:
     case GL_BGRA:
     case GL_RGBA8:
+    case GL_COLOR_INDEX:
 	    return true;
 	case GL_RED:
 	case GL_LUMINANCE:
@@ -369,6 +375,7 @@ static inline const GLboolean valid_vertex_type(GLenum type) {
 #include "texture.h"
 #include "array.h"
 #include "framebuffers.h"
+#include "blend.h"
 
 const GLubyte *gl4es_glGetString(GLenum name);
 void gl4es_glGetIntegerv(GLenum pname, GLint *params);
@@ -405,20 +412,10 @@ GLboolean gl4es_glIsList(GLuint list);
 void gl4es_glPolygonMode(GLenum face, GLenum mode);
 GLenum gl4es_glGetError();
 
-void gl4es_glPointParameteri(GLenum pname, GLint param);
-void gl4es_glPointParameteriv(GLenum pname, const GLint * params);
-void gl4es_glPointParameterf(GLenum pname, GLfloat param);
-void gl4es_glPointParameterfv(GLenum pname, const GLfloat * params);
-
-
 void gl4es_glSecondaryColorPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *pointer);
 void gl4es_glIndexPointer(GLenum type, GLsizei stride, const GLvoid * pointer);
 void gl4es_glEdgeFlagPointer(GLsizei stride, const GLvoid * pointer);
 void gl4es_glGetPointerv(GLenum pname, GLvoid* *params);
-void gl4es_glBlendColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-void gl4es_glBlendFuncSeparate(GLenum sfactorRGB, GLenum dfactorRGB, GLenum sfactorAlpha, GLenum dfactorAlpha);
-void gl4es_glBlendEquationSeparate(GLenum modeRGB, GLenum modeA);
-void gl4es_glBlendFunc(GLenum sfactor, GLenum dfactor);
 void gl4es_glFlush();
 void gl4es_glFinish();
 void gl4es_glFogfv(GLenum pname, const GLfloat* params);
@@ -428,12 +425,17 @@ void gl4es_glStencilMaskSeparate(GLenum face, GLuint mask);
 void gl4es_glMultiDrawArrays(GLenum mode, const GLint *first, const GLsizei *count, GLsizei primcount);
 void gl4es_glMultiDrawElements( GLenum mode, GLsizei *count, GLenum type, const void * const *indices, GLsizei primcount);
 
+const GLubyte *gl4es_glGetStringi(GLenum name, GLuint index);
 
 void flush();
-void init_batch();
 
-#include "state.h"
+int adjust_vertices(GLenum mode, int nb);
+
+#include "glstate.h"
 extern glstate_t *glstate;
+
+void fpe_Init(glstate_t *glstate);       // defined in fpe.c
+void fpe_Dispose(glstate_t *glstate);    // defined in fpe.c
 
 static inline void errorGL() {	// next glGetError will be from GL 
 	glstate->shim_error = 0;
@@ -446,6 +448,13 @@ static inline void noerrorShim() {
 	errorShim(GL_NO_ERROR);
 }
 
+void gl4es_scratch(int alloc);
+void gl4es_scratch_vertex(int alloc);
+void gl4es_scratch_indices(int alloc);
+void gl4es_use_scratch_vertex(int use);
+void gl4es_use_scratch_indices(int use);
+
+void ToBuffer(int first, int count);
 #include "defines.h"
 
 #include "render.h"

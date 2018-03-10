@@ -66,15 +66,6 @@ GLint gl4es_glRenderMode(GLenum mode) {
         glstate->selectbuf.hit = 0;
 	}
     
-    if((mode==GL_SELECT) && (glstate->gl_batch)) {
-        glstate->gl_batch = 0;
-        flush();
-    }
-    if((mode==GL_RENDER) && (glstate->gl_batch==0) && (globals4es.batch==1)) {
-        glstate->gl_batch = 1;
-        flush();
-    }
-    
 	glstate->render_mode = mode;
 	return ret;
 }
@@ -146,7 +137,7 @@ void gl4es_glLoadName(GLuint name) {
 }
 
 void gl4es_glSelectBuffer(GLsizei size, GLuint *buffer) {
-    if (glstate->gl_batch || glstate->list.pending)
+    if (glstate->list.pending)
 		flush();
 		
     noerrorShim();
@@ -357,10 +348,14 @@ void select_glDrawElements(const pointer_state_t* vtx, GLenum mode, GLuint count
 	if (count == 0) return;
 	if (vtx->pointer == NULL) return;
 
-	GLushort *ind = (GLushort*)indices;
+	GLushort *sind = (GLushort*)((type==GL_UNSIGNED_SHORT)?indices:NULL);
+	GLuint *iind = (GLuint*)((type==GL_UNSIGNED_INT)?indices:NULL);
 
 	GLsizei min, max;
-	getminmax_indices(indices, &max, &min, count);
+	if(sind)
+		getminmax_indices_us(sind, &max, &min, count);
+	else
+		getminmax_indices_ui(iind, &max, &min, count);
     max++;
 	GLfloat *vert = copy_gl_array(vtx->pointer, vtx->type, 
 			vtx->size, vtx->stride,
@@ -378,64 +373,127 @@ void select_glDrawElements(const pointer_state_t* vtx, GLenum mode, GLuint count
 		glstate->selectbuf.hit = 1; \
 		}
 
-	for (int i=0; i<count; i++) {
-		switch (mode) {
-			case GL_POINTS:
-				if (select_point_in_viewscreen(vert+ind[i]*4)) {
-					ZMinMax(&zmin, &zmax, vert+ind[i]*4);
-					FOUND();
-				}
-				break;
-			case GL_LINES:
-				if (i%2==1) {
-					if (select_segment_in_viewscreen(vert+ind[(i-1)]*4, vert+ind[i]*4)) {
-						ZMinMax(&zmin, &zmax, vert+ind[i-1]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i]*4);
+	if(sind) {
+		for (int i=0; i<count; i++) {
+			switch (mode) {
+				case GL_POINTS:
+					if (select_point_in_viewscreen(vert+sind[i]*4)) {
+						ZMinMax(&zmin, &zmax, vert+sind[i]*4);
 						FOUND();
 					}
-				}
-				break;
-			case GL_LINE_STRIP:
-			case GL_LINE_LOOP:		//FIXME: the last "loop" segment is missing here
-				if (i>0) {
-					if (select_segment_in_viewscreen(vert+ind[(i-1)]*4, vert+ind[i]*4)) {
-						ZMinMax(&zmin, &zmax, vert+ind[i-1]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i]*4);
+					break;
+				case GL_LINES:
+					if (i%2==1) {
+						if (select_segment_in_viewscreen(vert+sind[(i-1)]*4, vert+sind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+sind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i]*4);
+							FOUND();
+						}
+					}
+					break;
+				case GL_LINE_STRIP:
+				case GL_LINE_LOOP:		//FIXME: the last "loop" segment is missing here
+					if (i>0) {
+						if (select_segment_in_viewscreen(vert+sind[(i-1)]*4, vert+sind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+sind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i]*4);
+							FOUND();
+						}
+					}
+					break;
+				case GL_TRIANGLES:
+					if (i%3==2) {
+						if (select_triangle_in_viewscreen(vert+sind[(i-2)]*4, vert+sind[(i-1)]*4, vert+sind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+sind[i-2]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i]*4);
+							FOUND();
+						}
+					}
+					break;
+				case GL_TRIANGLE_STRIP:
+					if (i>1) {
+						if (select_triangle_in_viewscreen(vert+sind[(i-2)]*4, vert+sind[(i-1)]*4, vert+sind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+sind[i-2]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i]*4);
+							FOUND();
+						}
+					}
+					break;
+				case GL_TRIANGLE_FAN:
+					if (i>1) {
+						if (select_triangle_in_viewscreen(vert+sind[0]*4, vert+sind[(i-1)]*4, vert+sind[i]*4))
+							ZMinMax(&zmin, &zmax, vert+sind[0]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+sind[i]*4);
+							FOUND();
+					}
+					break;
+				default:
+					return;		// Should never go there!
+			}
+		} 
+	} else {
+		for (int i=0; i<count; i++) {
+			switch (mode) {
+				case GL_POINTS:
+					if (select_point_in_viewscreen(vert+iind[i]*4)) {
+						ZMinMax(&zmin, &zmax, vert+iind[i]*4);
 						FOUND();
 					}
-				}
-				break;
-			case GL_TRIANGLES:
-				if (i%3==2) {
-					if (select_triangle_in_viewscreen(vert+ind[(i-2)]*4, vert+ind[(i-1)]*4, vert+ind[i]*4)) {
-						ZMinMax(&zmin, &zmax, vert+ind[i-2]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i-1]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i]*4);
-						FOUND();
+					break;
+				case GL_LINES:
+					if (i%2==1) {
+						if (select_segment_in_viewscreen(vert+iind[(i-1)]*4, vert+iind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+iind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i]*4);
+							FOUND();
+						}
 					}
-				}
-				break;
-			case GL_TRIANGLE_STRIP:
-				if (i>1) {
-					if (select_triangle_in_viewscreen(vert+ind[(i-2)]*4, vert+ind[(i-1)]*4, vert+ind[i]*4)) {
-						ZMinMax(&zmin, &zmax, vert+ind[i-2]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i-1]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i]*4);
-						FOUND();
+					break;
+				case GL_LINE_STRIP:
+				case GL_LINE_LOOP:		//FIXME: the last "loop" segment is missing here
+					if (i>0) {
+						if (select_segment_in_viewscreen(vert+iind[(i-1)]*4, vert+iind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+iind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i]*4);
+							FOUND();
+						}
 					}
-				}
-				break;
-			case GL_TRIANGLE_FAN:
-				if (i>1) {
-					if (select_triangle_in_viewscreen(vert+ind[0]*4, vert+ind[(i-1)]*4, vert+ind[i]*4))
-						ZMinMax(&zmin, &zmax, vert+ind[0]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i-1]*4);
-						ZMinMax(&zmin, &zmax, vert+ind[i]*4);
-						FOUND();
-				}
-				break;
-			default:
-				return;		// Should never go there!
+					break;
+				case GL_TRIANGLES:
+					if (i%3==2) {
+						if (select_triangle_in_viewscreen(vert+iind[(i-2)]*4, vert+iind[(i-1)]*4, vert+iind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+iind[i-2]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i]*4);
+							FOUND();
+						}
+					}
+					break;
+				case GL_TRIANGLE_STRIP:
+					if (i>1) {
+						if (select_triangle_in_viewscreen(vert+iind[(i-2)]*4, vert+iind[(i-1)]*4, vert+iind[i]*4)) {
+							ZMinMax(&zmin, &zmax, vert+iind[i-2]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i]*4);
+							FOUND();
+						}
+					}
+					break;
+				case GL_TRIANGLE_FAN:
+					if (i>1) {
+						if (select_triangle_in_viewscreen(vert+iind[0]*4, vert+iind[(i-1)]*4, vert+iind[i]*4))
+							ZMinMax(&zmin, &zmax, vert+iind[0]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i-1]*4);
+							ZMinMax(&zmin, &zmax, vert+iind[i]*4);
+							FOUND();
+					}
+					break;
+				default:
+					return;		// Should never go there!
+			}
 		}
 	}
 	free(vert);

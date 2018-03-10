@@ -18,8 +18,12 @@
     if (strcmp(name, func_name) == 0) return (void *)func;
 #endif
 
-#define MAP_EGL(func_name, egl_func) \
+#ifdef NOEGL
+ #define MAP_EGL(func_name, egl_func)
+#else
+ #define MAP_EGL(func_name, egl_func) \
     MAP(#func_name, egl_eglGetProcAddress(#egl_func))
+#endif
 
 #define EX(func_name) MAP(#func_name, func_name)
 
@@ -43,20 +47,18 @@ void glXStub(void *x, ...) {
     return;
 }
 
-EXPORT void *glXGetProcAddressARB(const char *name) {
+void *gl4es_glXGetProcAddress(const char *name) {
+#ifndef NOEGL
     LOAD_EGL(eglGetProcAddress);
+#endif
 #ifdef DEBUG_ADDRESS
     static int cnt = 0;
     cnt++;
 #endif
     // generated gles wrappers
-#ifdef USE_ES2
-    #include "gles2funcs.inc"
-#else
     #include "glesfuncs.inc"
-#endif
 
-#ifndef ANDROID
+#ifndef NOX11
     // glX calls
     _EX(glXChooseVisual);
     _EX(glXCopyContext);
@@ -74,10 +76,10 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     _EX(glXQueryServerString);
     _EX(glXSwapBuffers);
     _EX(glXSwapIntervalEXT);
-#endif //ANDROID
+#endif //NOX11
     MAP("glXSwapIntervalMESA", gl4es_glXSwapInterval);
     MAP("glXSwapIntervalSGI", gl4es_glXSwapInterval);
-#ifndef ANDROID
+#ifndef NOX11
     _EX(glXUseXFont);
     _EX(glXWaitGL);
     _EX(glXWaitX);
@@ -104,7 +106,12 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     STUB(glXGetCurrentReadDrawable);
     STUB(glXGetSelectedEvent);
     STUB(glXSelectEvent);
-#endif //ANDROID
+
+    _EX(glXCreateContextAttribs);
+    _ARB(glXCreateContextAttribs);
+#endif //NOX11
+    _EX(glXGetProcAddress);
+    _ARB(glXGetProcAddress);
     // GL_EXT_texture_object (yeah, super old!)
     _EXT(glGenTextures);
     _EXT(glBindTexture);
@@ -195,6 +202,7 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
         _ARB(glFramebufferTextureLayer);
         _ARB(glBlitFramebuffer);
         STUB(glDrawBuffersARB);
+        STUB(glDrawBuffers);    //TODO: implement something?
     }
     
     // GL_EXT_vertex_array
@@ -301,13 +309,6 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     _EXT(glPointParameterf);
     _EXT(glPointParameterfv);
 
-#ifdef USE_ES2
-    _EX(glCompileShaderARB);
-    _EX(glCreateShaderObjectARB);
-    _EX(glGetObjectParameterivARB);
-    _EX(glShaderSourceARB);
-#endif
-
     // functions we actually define
     _EXT(glActiveTexture);
     _ARB(glActiveTexture);
@@ -387,12 +388,10 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     _EX(glInitNames);
     _EX(glInterleavedArrays);
     _EX(glIsList);
-#ifndef USE_ES2
     _EX(glLighti);
     _EX(glLightiv);
     _EX(glLightModeli);
     _EX(glLightModeliv);
-#endif
     _EX(glLineStipple);
     _EX(glListBase);
     _EX(glLoadMatrixd);
@@ -491,15 +490,15 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     STUB(glGetClipPlane);
     _EX(glGetLightiv);
     _EX(glGetMaterialiv);
-    STUB(glGetPixelMapfv);
-    STUB(glGetPixelMapuiv);
-    STUB(glGetPixelMapusv);
+    _EX(glGetPixelMapfv);
+    _EX(glGetPixelMapuiv);
+    _EX(glGetPixelMapusv);
     STUB(glGetPolygonStipple);
-    STUB(glGetStringi);
+    _EX(glGetStringi);
     STUB(glPassThrough);
-    STUB(glPixelMapfv);
-    STUB(glPixelMapuiv);
-    STUB(glPixelMapusv);
+    _EX(glPixelMapfv);
+    _EX(glPixelMapuiv);
+    _EX(glPixelMapusv);
     _EX(glPixelStoref);
     STUB(glPrioritizeTextures);
     STUB(glSelectBuffer);   //TODO
@@ -512,7 +511,15 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     _EX(glPointParameteri);
     _EX(glPointParameteriv);
     
-    STUB(glFogCoordPointer);
+    _EX(glFogCoordPointer);
+    if(hardext.esversion>1) {
+        // EXT_fog_coord supported
+        _EXT(glFogCoordd);
+        _EXT(glFogCoorddv);
+        _EXT(glFogCoordf);
+        _EXT(glFogCoordfv);
+        _EXT(glFogCoordPointer);
+    }
     /*STUB(glEdgeFlagPointerEXT);
     STUB(glIndexPointerEXT);*/
     
@@ -634,10 +641,206 @@ EXPORT void *glXGetProcAddressARB(const char *name) {
     // GL_ARB_multisample
     _ARB(glSampleCoverage);
 
+    // extra shaders stuff
+    #define THUNK(suffix) \
+    _EX(glVertexAttrib1##suffix); \
+    _EX(glVertexAttrib2##suffix); \
+    _EX(glVertexAttrib3##suffix); \
+    _EX(glVertexAttrib4##suffix); \
+    _EXT(glVertexAttrib1##suffix); \
+    _EXT(glVertexAttrib2##suffix); \
+    _EXT(glVertexAttrib3##suffix); \
+    _EXT(glVertexAttrib4##suffix);
+    THUNK(s);
+    THUNK(d);
+    THUNK(sv);
+    THUNK(dv);
+    #undef THUNK
+    #define THUNK(suffix) \
+    _EX(glVertexAttrib4##suffix##v); \
+    _EX(glVertexAttrib4u##suffix##v); \
+    _EX(glVertexAttrib4N##suffix##v); \
+    _EX(glVertexAttrib4Nu##suffix##v);\
+    _EXT(glVertexAttrib4##suffix##v); \
+    _EXT(glVertexAttrib4u##suffix##v); \
+    _EXT(glVertexAttrib4N##suffix##v); \
+    _EXT(glVertexAttrib4Nu##suffix##v);
+    THUNK(b);
+    THUNK(s);
+    THUNK(i);
+    #undef THUNK
+    _EX(glGetVertexAttribdv);
+    _EXT(glGetVertexAttribdv);
+    _ARB(glGetVertexAttribdv);
+    _EX(glVertexAttrib4Nub);
+    _EXT(glVertexAttrib4Nub);
+    _ARB(glVertexAttrib4Nub);
+    // arb version of shader stuffs
+    //  GL_ARB_vertex_shader
+    _ARB(glVertexAttrib1f);
+    _ARB(glVertexAttrib1s);
+    _ARB(glVertexAttrib1d);
+    _ARB(glVertexAttrib2f);
+    _ARB(glVertexAttrib2s);
+    _ARB(glVertexAttrib2d);
+    _ARB(glVertexAttrib3f);
+    _ARB(glVertexAttrib3s);
+    _ARB(glVertexAttrib3d);
+    _ARB(glVertexAttrib4f);
+    _ARB(glVertexAttrib4s);
+    _ARB(glVertexAttrib4d);
+    _ARB(glVertexAttrib4Nub);
+    _ARB(glVertexAttrib1fv);
+    _ARB(glVertexAttrib1sv);
+    _ARB(glVertexAttrib1dv);
+    _ARB(glVertexAttrib2fv);
+    _ARB(glVertexAttrib2sv);
+    _ARB(glVertexAttrib2dv);
+    _ARB(glVertexAttrib3fv);
+    _ARB(glVertexAttrib3sv);
+    _ARB(glVertexAttrib3dv);
+    _ARB(glVertexAttrib4fv);
+    _ARB(glVertexAttrib4sv);
+    _ARB(glVertexAttrib4dv);
+    _ARB(glVertexAttrib4iv);
+    _ARB(glVertexAttrib4bv);
+    _ARB(glVertexAttrib4ubv);
+    _ARB(glVertexAttrib4usv);
+    _ARB(glVertexAttrib4uiv);
+    _ARB(glVertexAttrib4Nbv);
+    _ARB(glVertexAttrib4Nsv);
+    _ARB(glVertexAttrib4Niv);
+    _ARB(glVertexAttrib4Nubv);
+    _ARB(glVertexAttrib4Nusv);
+    _ARB(glVertexAttrib4Nuiv);
+    _ARB(glVertexAttribPointer);
+    _ARB(glEnableVertexAttribArray);
+    _ARB(glDisableVertexAttribArray);
+    _ARB(glBindAttribLocation);
+    _ARB(glGetActiveAttrib);
+    _ARB(glGetAttribLocation);
+    _ARB(glGetVertexAttribdv);
+    _ARB(glGetVertexAttribfv);
+    _ARB(glGetVertexAttribiv);
+    _ARB(glGetVertexAttribPointerv);
+    // GL_ARB_fragment_shader (nothing)
+    // GL_ARGB_shader_objects
+    _ARB(glDeleteObject);
+    _ARB(glGetHandle);
+    _ARB(glDetachObject);
+    _ARB(glCreateShaderObject);
+    _ARB(glShaderSource);
+    _ARB(glCompileShader);
+    _ARB(glCreateProgramObject);
+    _ARB(glAttachObject);
+    _ARB(glLinkProgram);
+    _ARB(glUseProgramObject);
+    _ARB(glValidateProgram);
+    _ARB(glUniform1f);
+    _ARB(glUniform2f);
+    _ARB(glUniform3f);
+    _ARB(glUniform4f);
+    _ARB(glUniform1i);
+    _ARB(glUniform2i);
+    _ARB(glUniform3i);
+    _ARB(glUniform4i);
+    _ARB(glUniform1fv);
+    _ARB(glUniform2fv);
+    _ARB(glUniform3fv);
+    _ARB(glUniform4fv);
+    _ARB(glUniform1iv);
+    _ARB(glUniform2iv);
+    _ARB(glUniform3iv);
+    _ARB(glUniform4iv);
+    _ARB(glUniformMatrix2fv);
+    _ARB(glUniformMatrix3fv);
+    _ARB(glUniformMatrix4fv);
+    _ARB(glGetObjectParameterfv);
+    _ARB(glGetObjectParameteriv);
+    _ARB(glGetInfoLog);
+    _ARB(glGetAttachedObjects);
+    _ARB(glGetUniformLocation);
+    _ARB(glGetActiveUniform);
+    _ARB(glGetUniformfv);
+    _ARB(glGetUniformiv);
+    _ARB(glGetShaderSource);
+    // EXT version of Shaders functions
+    _EXT(glAttachShader);
+    _EXT(glBindAttribLocation);
+    _EXT(glCompileShader);
+    _EXT(glCreateProgram);
+    _EXT(glCreateShader);
+    _EXT(glDeleteProgram);
+    _EXT(glDeleteShader);
+    _EXT(glDetachShader);
+    _EXT(glGetActiveAttrib);
+    _EXT(glGetActiveUniform);
+    _EXT(glGetAttachedShaders);
+    _EXT(glGetAttribLocation);
+    _EXT(glGetProgramInfoLog);
+    _EXT(glGetProgramiv);
+    _EXT(glGetShaderInfoLog);
+    _EXT(glGetShaderPrecisionFormat);
+    _EXT(glGetShaderSource);
+    _EXT(glGetShaderiv);
+    _EXT(glGetUniformLocation);
+    _EXT(glGetUniformfv);
+    _EXT(glGetUniformiv);
+    _EXT(glGetVertexAttribPointerv);
+    _EXT(glGetVertexAttribfv);
+    _EXT(glGetVertexAttribiv);
+    _EXT(glIsProgram);
+    _EXT(glIsShader);
+    _EXT(glReleaseShaderCompiler);
+    _EXT(glShaderBinary);
+    _EXT(glShaderSource);
+    _EXT(glUniform1f);
+    _EXT(glUniform1fv);
+    _EXT(glUniform1i);
+    _EXT(glUniform1iv);
+    _EXT(glUniform2f);
+    _EXT(glUniform2fv);
+    _EXT(glUniform2i);
+    _EXT(glUniform2iv);
+    _EXT(glUniform3f);
+    _EXT(glUniform3fv);
+    _EXT(glUniform3i);
+    _EXT(glUniform3iv);
+    _EXT(glUniform4f);
+    _EXT(glUniform4fv);
+    _EXT(glUniform4i);
+    _EXT(glUniform4iv);
+    _EXT(glUniformMatrix2fv);
+    _EXT(glUniformMatrix3fv);
+    _EXT(glUniformMatrix4fv);
+    _EXT(glUseProgram);
+    _EXT(glValidateProgram);
+    _EXT(glVertexAttrib1f);
+    _EXT(glVertexAttrib1fv);
+    _EXT(glVertexAttrib2f);
+    _EXT(glVertexAttrib2fv);
+    _EXT(glVertexAttrib3f);
+    _EXT(glVertexAttrib3fv);
+    _EXT(glVertexAttrib4f);
+    _EXT(glVertexAttrib4fv);
+    _EXT(glVertexAttribPointer);
+    _EXT(glVertexPointer);
+
+    // stub non-squared matrix access
+    STUB(glUniformMatrix2x3fv);
+    STUB(glUniformMatrix3x2fv);
+    STUB(glUniformMatrix2x4fv);
+    STUB(glUniformMatrix4x2fv);
+    STUB(glUniformMatrix3x4fv);
+    STUB(glUniformMatrix4x3fv);
+            
+
     if (!globals4es.silentstub) LOGD("glXGetProcAddress: %s not found.\n", name);
     return NULL;
 }
-
-EXPORT void *glXGetProcAddress(const char *name) {
-    return glXGetProcAddressARB(name);
-}
+#ifdef AMIGAOS4
+void aglGetProcAddress(const char* name) AliasExport("gl4es_glXGetProcAddress");
+#else
+void glXGetProcAddress(const char* name) AliasExport("gl4es_glXGetProcAddress");
+void glXGetProcAddressARB(const char* name) AliasExport("gl4es_glXGetProcAddress");
+#endif

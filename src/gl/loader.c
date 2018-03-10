@@ -1,10 +1,15 @@
 #include "loader.h"
 #include "logs.h"
 #include "init.h"
+#ifdef AMIGAOS4
+#include "../agl/amigaos.h"
+#include <limits.h>
+#else
 #include <linux/limits.h>
+#endif
 
 void *gles = NULL, *egl = NULL, *bcm_host = NULL, *vcos = NULL;
-
+#ifndef AMIGAOS4
 static const char *path_prefix[] = {
     "",
     "/opt/vc/lib/",
@@ -22,19 +27,23 @@ static const char *lib_ext[] = {
     NULL,
 };
 
-static const char *gles_lib[] = {
-#ifdef USE_ES2
+static const char *gles2_lib[] = {
     "libGLESv2_CM",
     "libGLESv2",
-#else
+    "libbrcmGLESv2",
+    NULL
+};
+
+static const char *gles_lib[] = {
     "libGLESv1_CM",
     "libGLES_CM",
-#endif // USE_ES2
+    "libbrcmGLESv1_CM",
     NULL
 };
 
 static const char *egl_lib[] = {
     "libEGL",
+    "libbrcmEGL",
     NULL
 };
 
@@ -81,10 +90,19 @@ void load_libs() {
         bcm_host = open_lib(bcm_host_name, NULL);
         vcos = open_lib(vcos_name, NULL);
     }
-    gles = open_lib(gles_lib, gles_override);
+    gles = open_lib((globals4es.es==1)?gles_lib:gles2_lib, gles_override);
     WARN_NULL(gles);
 
+#ifdef NOEGL
+    egl = gles;
+#else
     char *egl_override = getenv("LIBGL_EGL");
     egl = open_lib(egl_lib, egl_override);
+#endif
     WARN_NULL(egl);
 }
+#else
+void load_libs() {
+    os4OpenLib(&gles);
+}
+#endif //AMIGAOS4

@@ -1,9 +1,13 @@
+#ifndef CONST_H
+#define CONST_H
+
 #define GL_QUADS      7
 #define GL_QUAD_STRIP 8
 #define GL_POLYGON    9
 
 #define GL_MAJOR_VERSION            0x821B
 #define GL_MINOR_VERSION            0x821C
+#define GL_DOUBLEBUFFER				0x0C32
 /* texture mapping */
 #define GL_TEXTURE_ENV              0x2300
 #define GL_TEXTURE_ENV_MODE         0x2200
@@ -58,10 +62,11 @@
 #define GL_PROXY_TEXTURE_3D         0x8070
 #define GL_TEXTURE_MIN_LOD          0x813A
 #define GL_TEXTURE_MAX_LOD          0x813B
+#define GL_TEXTURE_FILTER_CONTROL   0x8500
 #define GL_TEXTURE_LOD_BIAS         0x8501
 #define GL_TEXTURE_CUBE_MAP         0x8513
 #define GL_TEXTURE_GEN_STR          0x8D60
-
+#define GL_CLAMP_TO_BORDER          0x812D
 
 // GL_ARB_point_sprite
 #define GL_POINT_SPRITE             0x8861
@@ -124,9 +129,11 @@
 #define GL_SECONDARY_COLOR_ARRAY          0x845E
 #define GL_SECONDARY_COLOR_ARRAY_BUFFER_BINDING 0x889C
 #define GL_COLOR_SUM                      0x8458
+#define GL_CURRENT_SECONDARY_COLOR        0x8459
 
 
 // pixel formats
+#define GL_COLOR_INDEX                 0x1900
 #define GL_RED                         0x1903
 #define GL_R3_G3_B2                    0x2A10
 #define GL_RG                          0x8227
@@ -147,12 +154,26 @@
 #define GL_RGB8                        0x8051
 #define GL_RGB5                        0x8050
 #define GL_RGBA8                       0x8058
-#define GL_LUMINANCE8_ALPHA8           0x8045
 #define GL_RGBA16                      0x805B
-#define GL_LUMINANCE8                  0x8040
-#define GL_LUMINANCE16                 0x8042
-#define GL_ALPHA8                      0x803C
-#define GL_LUMINANCE4_ALPHA4           0x8043
+#define GL_ALPHA4				       0x803B
+#define GL_ALPHA8				       0x803C
+#define GL_ALPHA12				       0x803D
+#define GL_ALPHA16				       0x803E
+#define GL_LUMINANCE4				   0x803F
+#define GL_LUMINANCE8				   0x8040
+#define GL_LUMINANCE12				   0x8041
+#define GL_LUMINANCE16				   0x8042
+#define GL_LUMINANCE4_ALPHA4		   0x8043
+#define GL_LUMINANCE6_ALPHA2		   0x8044
+#define GL_LUMINANCE8_ALPHA8		   0x8045
+#define GL_LUMINANCE12_ALPHA4		   0x8046
+#define GL_LUMINANCE12_ALPHA12		   0x8047
+#define GL_LUMINANCE16_ALPHA16		   0x8048
+#define GL_INTENSITY				   0x8049
+#define GL_INTENSITY4				   0x804A
+#define GL_INTENSITY8				   0x804B
+#define GL_INTENSITY12				   0x804C
+#define GL_INTENSITY16				   0x804D
 #define GL_RGB10_A2                    0x8059
 #define GL_RGBA16F                     0x881A
 #define GL_RGB16F                      0x881B
@@ -182,6 +203,7 @@
 #define GL_3_BYTES              0x1408
 #define GL_4_BYTES              0x1409
 #define GL_DOUBLE               0x140A
+#define GL_BITMAP               0x1A00
 
 #define GL_COMPILE              0x1300
 #define GL_COMPILE_AND_EXECUTE  0x1301
@@ -197,6 +219,17 @@
 #define GL_LINEAR               0x2601
 #define GL_EXP                  0x0800
 #define GL_EXP2                 0x0801
+#define GL_FOG_COORDINATE_SOURCE 0x8450
+#define GL_FOG_COORD_SRC        GL_FOG_COORDINATE_SOURCE
+#define GL_FRAGMENT_DEPTH       0x8452
+#define GL_FOG_COORDINATE       0x8451
+#define GL_FOG_COORD            GL_FOG_COORDINATE
+#define GL_CURRENT_FOG_COORD              0x8453
+#define GL_FOG_COORD_ARRAY_TYPE           0x8454
+#define GL_FOG_COORD_ARRAY_STRIDE         0x8455
+#define GL_FOG_COORD_ARRAY_POINTER        0x8456
+#define GL_FOG_COORD_ARRAY                0x8457
+#define GL_FOG_COORD_ARRAY_BUFFER_BINDING 0x889D
 
 // lighting
 #define GL_LIGHTING             0x0B50
@@ -233,6 +266,10 @@
 #define GL_COLOR_MATERIAL_FACE  0x0B55
 #define GL_COLOR_MATERIAL_PARAMETER 0x0B56
 #define GL_NORMALIZE            0x0BA1
+#define GL_DRAW_BUFFER          0x0C01
+#define GL_LIGHT_MODEL_COLOR_CONTROL	0x81F8
+#define GL_SINGLE_COLOR		    0x81F9
+#define GL_SEPARATE_SPECULAR_COLOR		0x81FA
 
 // pixel transfer
 #define GL_MAP_COLOR             0x0D10
@@ -285,6 +322,7 @@
 #define GL_PACK_IMAGE_HEIGHT     0x806C
 #define GL_ZOOM_X                0x0D16
 #define GL_ZOOM_Y                0x0D17
+#define GL_MAX_PIXEL_MAP_TABLE   0x0D34
 #define GL_TEXTURE_BASE_LEVEL    0x813C
 
 // blending
@@ -304,6 +342,12 @@
 #define GL_ONE_MINUS_CONSTANT_COLOR       0x8002
 #define GL_CONSTANT_ALPHA        0x8003
 #define GL_ONE_MINUS_CONSTANT_ALPHA       0x8004
+#define GL_DOT3_RGB_EXT         0x8740
+#define GL_DOT3_RGBA_EXT        0x8741
+#define GL_BLEND_DST_RGB        0x80C8
+#define GL_BLEND_SRC_RGB        0x80C9
+#define GL_BLEND_DST_ALPHA      0x80CA
+#define GL_BLEND_SRC_ALPHA      0x80CB
 
 // glGet
 #define GL_AUX_BUFFERS           0x0C00
@@ -486,6 +530,7 @@
 #define GL_PIXEL_UNPACK_BUFFER            0x88EC
 #define GL_PIXEL_UNPACK_BUFFER_BINDING	  0x88EF
 #define GL_PIXEL_PACK_BUFFER_BINDING      0x88ED
+#define GL_CURRENT_VERTEX_ATTRIB          0x8626
 
 /* Framebuffers */
 #define GL_INVALID_FRAMEBUFFER_OPERATION  0x0506
@@ -568,10 +613,16 @@
 #define GL_INDEX                          0x8222
 #define GL_TEXTURE_LUMINANCE_TYPE         0x8C14
 #define GL_TEXTURE_INTENSITY_TYPE         0x8C15
+#define GL_DEPTH_COMPONENT32              0x81A7
 #define GL_DEPTH_COMPONENT24              0x81A6
 #define GL_DEPTH_COMPONENT16              0x81A5
 #define GL_DEPTH_COMPONENT                0x1902
 #define GL_MAX_DRAW_BUFFERS_ARB           0x8824
+
+// point sprite extension
+#define GL_POINT_SPRITE_COORD_ORIGIN      0x8CA0
+#define GL_LOWER_LEFT                     0x8CA1
+#define GL_UPPER_LEFT                     0x8CA2
 
 // direct state
 #define GL_MATRIX0_ARB                    0x88C0
@@ -604,3 +655,65 @@
 #define GL_TEXTURE_CUBE_MAP_NEGATIVE_Z    0x851A
 #define GL_PROXY_TEXTURE_CUBE_MAP         0x851B
 #define GL_AX_CUBE_MAP_TEXTURE_SIZE       0x851C
+
+// Shaders
+#define GL_FRAGMENT_SHADER                  0x8B30
+#define GL_VERTEX_SHADER                    0x8B31
+#define GL_MAX_VERTEX_ATTRIBS               0x8869
+#define GL_MAX_VERTEX_UNIFORM_VECTORS       0x8DFB
+#define GL_MAX_VARYING_VECTORS              0x8DFC
+#define GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS 0x8B4D
+#define GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS   0x8B4C
+#define GL_MAX_TEXTURE_IMAGE_UNITS          0x8872
+#define GL_MAX_FRAGMENT_UNIFORM_VECTORS     0x8DFD
+#define GL_SHADER_TYPE                      0x8B4F
+#define GL_DELETE_STATUS                    0x8B80
+#define GL_LINK_STATUS                      0x8B82
+#define GL_VALIDATE_STATUS                  0x8B83
+#define GL_ATTACHED_SHADERS                 0x8B85
+#define GL_ACTIVE_UNIFORMS                  0x8B86
+#define GL_ACTIVE_UNIFORM_MAX_LENGTH        0x8B87
+#define GL_ACTIVE_ATTRIBUTES                0x8B89
+#define GL_ACTIVE_ATTRIBUTE_MAX_LENGTH      0x8B8A
+#define GL_SHADING_LANGUAGE_VERSION         0x8B8C
+#define GL_CURRENT_PROGRAM                  0x8B8D
+// Shaders extensions
+#define GL_PROGRAM_BINARY_LENGTH            0x8741
+#define GL_NUM_PROGRAM_BINARY_FORMATS       0x87FE
+#define GL_PROGRAM_BINARY_FORMATS           0x87FF
+#define GL_PROGRAM_OBJECT_ARB               0x8B40
+
+// Vertex Arrays
+#define GL_VERTEX_ATTRIB_ARRAY_ENABLED        0x8622
+#define GL_VERTEX_ATTRIB_ARRAY_SIZE           0x8623
+#define GL_VERTEX_ATTRIB_ARRAY_STRIDE         0x8624
+#define GL_VERTEX_ATTRIB_ARRAY_TYPE           0x8625
+#define GL_VERTEX_ATTRIB_ARRAY_NORMALIZED     0x886A
+#define GL_VERTEX_ATTRIB_ARRAY_POINTER        0x8645
+#define GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING 0x889F
+
+// Uniform Types
+#define GL_FLOAT_VEC2                     0x8B50
+#define GL_FLOAT_VEC3                     0x8B51
+#define GL_FLOAT_VEC4                     0x8B52
+#define GL_INT_VEC2                       0x8B53
+#define GL_INT_VEC3                       0x8B54
+#define GL_INT_VEC4                       0x8B55
+#define GL_BOOL                           0x8B56
+#define GL_BOOL_VEC2                      0x8B57
+#define GL_BOOL_VEC3                      0x8B58
+#define GL_BOOL_VEC4                      0x8B59
+#define GL_FLOAT_MAT2                     0x8B5A
+#define GL_FLOAT_MAT3                     0x8B5B
+#define GL_FLOAT_MAT4                     0x8B5C
+#define GL_SAMPLER_2D                     0x8B5E
+#define GL_SAMPLER_CUBE                   0x8B60
+
+// Getter
+#define GL_NUM_EXTENSIONS                 0x821D
+
+// Anisotropic
+#define GL_TEXTURE_MAX_ANISOTROPY         0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY     0x84FF
+
+#endif

@@ -59,11 +59,28 @@ typedef struct {
     GLenum type;
     GLsizei stride;
     const GLvoid *pointer;
+    GLboolean enabled;
 } pointer_state_t;
 
-typedef struct {
-    pointer_state_t vertex, color, normal, tex_coord[MAX_TEX], secondary;
-} pointer_states_t;
+typedef enum {
+    ATT_VERTEX = 0,
+    ATT_COLOR,
+    ATT_MULTITEXCOORD0,
+    ATT_MULTITEXCOORD1,
+    ATT_MULTITEXCOORD2,
+    ATT_MULTITEXCOORD3,
+    ATT_MULTITEXCOORD4,
+    ATT_MULTITEXCOORD5,
+    ATT_MULTITEXCOORD6,
+    ATT_MULTITEXCOORD7,
+    ATT_NORMAL,
+    ATT_SECONDARY,
+    ATT_FOGCOORD,
+    //ATT_POINTSIZE,   //this one is supported by GLES hardware
+    ATT_MAX
+} reserved_attrib_t;
+
+#define NB_VA (ATT_MAX)
 
 typedef struct {
     GLfloat *ptr;
@@ -71,33 +88,52 @@ typedef struct {
     GLboolean enabled;
 } pointer_cache_t;
 
+// Vertex Attrib.. ***
+typedef struct {
+    GLint           size;
+    GLenum          type;
+    GLboolean       normalized;
+    GLsizei         stride;
+    const GLvoid*   pointer;
+    glbuffer_t      *buffer;    // reference buffer
+    GLfloat         current[4];
+    GLboolean       vaarray;
+} vertexattrib_t;
+
 // VAO ****************
 typedef struct {
     GLuint           array;
     // pointer state
-    pointer_states_t pointers;
+    pointer_state_t  pointers[NB_VA];
     // buffer state
     glbuffer_t *vertex;
     glbuffer_t *elements;
     glbuffer_t *pack;
     glbuffer_t *unpack;
-    // client state
-    GLboolean  secondary_array,
-               color_array,
-               normal_array,
-               vertex_array,
-               tex_coord_array[MAX_TEX];
+    // locked arrays
+    GLboolean locked;
+    GLsizei   count;
+    GLint     first;
+    GLboolean locked_mapped;
+    pointer_state_t   locked_pointers[NB_VA];
+
+    int maxtex; // upper limit enabled tex_coord
     // VAO optimisation: keep a shared copy of the digested datas (unless the vao is the default one)
     int *shared_arrays;
     pointer_cache_t vert;
     pointer_cache_t normal;
     pointer_cache_t color;
     pointer_cache_t secondary;
+    pointer_cache_t fog;
     pointer_cache_t tex[MAX_TEX];
     int cache_count;
+    // Vertex Attrib
+    vertexattrib_t  vertexattrib[MAX_VATTRIB];
+    // TODO: Cache VA also?
 } glvao_t;
 
 void VaoSharedClear(glvao_t *vao);
+void VaoInit(glvao_t *vao);
 
 KHASH_MAP_INIT_INT(glvao, glvao_t*)
 

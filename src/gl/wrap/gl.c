@@ -11,31 +11,6 @@
 
 // naive wrappers
 
-#ifdef USE_ES2
-void gl4es_glCompileShader(GLuint shader) {
-    gl4es_glCompileShader(shader);
-    GLint status;
-    gl4es_glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE) {
-        GLint log_length;
-        gl4es_glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-        GLchar *log = malloc(sizeof(GLchar) * log_length);
-        gl4es_glGetShaderInfoLog(shader, log_length, NULL, log);
-        printf("Shader compile failed: %s\n", log);
-        free(log);
-    }
-}
-GLuint gl4es_glCreateShaderObject(GLenum shaderType) {
-    return glCreateShader(shaderType);
-}
-void gl4es_glShaderSource(GLuint shader, GLsizei count, const GLchar **string, const GLint *length) {
-    gl4es_glShaderSource(shader, count, string, length);
-}
-void gl4es_glGetObjectParameteriv(GLuint shader, GLenum pname, GLint *params) {
-    gl4es_glGetShaderiv(shader, pname, params);
-}
-#endif
-
 void gl4es_glClearDepth(GLdouble depth) {
     gl4es_glClearDepthf(depth);
 }
@@ -55,7 +30,9 @@ void gl4es_glFogiv(GLenum pname, GLint *iparams) {
         case GL_FOG_START:
         case GL_FOG_END:
         case GL_FOG_MODE:
-        case GL_FOG_INDEX: {
+        case GL_FOG_INDEX: 
+        case GL_FOG_COORD_SRC:
+        {
             gl4es_glFogf(pname, *iparams);
             break;
         }
@@ -172,7 +149,7 @@ void gl4es_glLightiv(GLenum light, GLenum pname, GLint *iparams) {
         }
     }
 }
-#ifndef USE_ES2
+
 void gl4es_glLightModeli(GLenum pname, GLint param) {
     gl4es_glLightModelf(pname, param);
 }
@@ -193,12 +170,12 @@ void gl4es_glLightModeliv(GLenum pname, GLint *iparams) {
         }
     }
 }
-#endif
+
 void gl4es_glMateriali(GLenum face, GLenum pname, GLint param) {
     gl4es_glMaterialf(face, pname, param);
 }
 void gl4es_glMaterialiv(GLenum face, GLenum pname, GLint *iparams) {
-printf("glMaterialiv(%04X, %04X, [%i,...]\n", face, pname, iparams[0]);
+    //printf("glMaterialiv(%04X, %04X, [%i,...]\n", face, pname, iparams[0]);
     switch (pname) {
         case GL_AMBIENT: 
 		case GL_DIFFUSE:
@@ -250,15 +227,15 @@ void gl4es_glMultiTexCoord3f(GLenum target, GLfloat s, GLfloat t, GLfloat r) {
 /*void glMultiTexCoord4f(GLenum target, GLfloat s, GLfloat t, GLfloat r, GLfloat q) {
      glMultiTexCoord2f(target, s, t);
 }*/
-void gl4es_glMultiTexCoord2fv(GLenum target, GLfloat *t) {
+/*void gl4es_glMultiTexCoord2fv(GLenum target, GLfloat *t) {
      gl4es_glMultiTexCoord4f(target, t[0], t[1], 0, 1);
-}
+}*/
 void gl4es_glMultiTexCoord3fv(GLenum target, GLfloat *t) {
      gl4es_glMultiTexCoord4f(target, t[0], t[1], t[2], 1);
 }
-void gl4es_glMultiTexCoord4fv(GLenum target, GLfloat *t) {
+/*void gl4es_glMultiTexCoord4fv(GLenum target, GLfloat *t) {
      gl4es_glMultiTexCoord4f(target, t[0], t[1], t[2], t[3]);
-}
+}*/
 /*
 void glBlendFuncSeparateEXT (GLenum sfactorRGB, GLenum dfactorRGB, GLenum sfactorAlpha, GLenum dfactorAlpha) {
 	glBlendFuncSeparate (sfactorRGB, dfactorRGB, sfactorAlpha, dfactorAlpha);
@@ -296,7 +273,7 @@ void glOrthofOES(GLfloat left, GLfloat right, GLfloat bottom,
 
 #define GL_RECT(suffix, type)                                 \
     void gl4es_glRect##suffix(type x1, type y1, type x2, type y2) { \
-        gl4es_glBegin(GL_POLYGON);                                  \
+        gl4es_glBegin(GL_QUADS);                                  \
         gl4es_glVertex2##suffix(x1, y1);                            \
         gl4es_glVertex2##suffix(x2, y1);                            \
         gl4es_glVertex2##suffix(x2, y2);                            \
@@ -315,25 +292,25 @@ GL_RECT(s, GLshort)
 
 // basic thunking
 
-#define THUNK(suffix, type, max)                            \
+#define THUNK(suffix, type, invmax)                            \
 /* colors */                                                \
 void gl4es_glColor3##suffix(type r, type g, type b) {             \
-    gl4es_glColor4f(r/max, g/max, b/max, 1.0f);                   \
+    gl4es_glColor4f(r*invmax, g*invmax, b*invmax, 1.0f);                   \
 }                                                           \
 void gl4es_glColor4##suffix(type r, type g, type b, type a) {     \
-    gl4es_glColor4f(r/max, g/max, b/max, a/max);                  \
+    gl4es_glColor4f(r*invmax, g*invmax, b*invmax, a*invmax);                  \
 }                                                           \
 void gl4es_glColor3##suffix##v(const type *v) {                   \
-    gl4es_glColor4f(v[0]/max, v[1]/max, v[2]/max, 1.0f);          \
+    gl4es_glColor4f(v[0]*invmax, v[1]*invmax, v[2]*invmax, 1.0f);          \
 }                                                           \
 void gl4es_glColor4##suffix##v(const type *v) {                   \
-    gl4es_glColor4f(v[0]/max, v[1]/max, v[2]/max, v[3]/max);      \
+    gl4es_glColor4f(v[0]*invmax, v[1]*invmax, v[2]*invmax, v[3]*invmax);      \
 }                                                           \
 void gl4es_glSecondaryColor3##suffix(type r, type g, type b) {    \
-    gl4es_glSecondaryColor3f(r/max, g/max, b/max);                \
+    gl4es_glSecondaryColor3f(r*invmax, g*invmax, b*invmax);                \
 }                                                           \
 void gl4es_glSecondaryColor3##suffix##v(const type *v) {          \
-    gl4es_glSecondaryColor3f(v[0]/max, v[1]/max, v[2]/max);       \
+    gl4es_glSecondaryColor3f(v[0]*invmax, v[1]*invmax, v[2]*invmax);       \
 }                                                           \
 /* index */                                                 \
 void gl4es_glIndex##suffix(type c) {                              \
@@ -451,69 +428,13 @@ void gl4es_glMultiTexCoord4##suffix##v(GLenum target, type *t) {               \
 }
 
 
-THUNK(b, GLbyte, (float)CHAR_MAX)
+THUNK(b, GLbyte, (1.0f/(float)CHAR_MAX))
 THUNK(d, GLdouble, 1.0f)
-THUNK(i, GLint, (float)INT_MAX)
-THUNK(s, GLshort, (float)SHRT_MAX)
-THUNK(ub, GLubyte, (float)UCHAR_MAX)
-THUNK(ui, GLuint, (float)UINT_MAX)
-THUNK(us, GLushort, (float)USHRT_MAX)
-
-#undef THUNK
-
-// glGet
-
-#define THUNK(suffix, type)                              \
-void gl4es_glGet##suffix##v(GLenum pname, type *params) {      \
-    int i, n = 1;                                        \
-    switch (pname) {                                     \
-        /* two values */                                 \
-        case GL_ALIASED_POINT_SIZE_RANGE:                \
-        case GL_ALIASED_LINE_WIDTH_RANGE:                \
-        case GL_MAX_VIEWPORT_DIMS:                       \
-            n = 2;                                       \
-            break;                                       \
-        /* three values */                               \
-        case GL_CURRENT_NORMAL:                          \
-        case GL_POINT_DISTANCE_ATTENUATION:              \
-            n = 3;                                       \
-            break;                                       \
-        /* four values */                                \
-        case GL_COLOR_CLEAR_VALUE:                       \
-        case GL_COLOR_WRITEMASK:                         \
-        case GL_CURRENT_COLOR:                           \
-        case GL_CURRENT_TEXTURE_COORDS:                  \
-        case GL_DEPTH_RANGE:                             \
-        case GL_FOG_COLOR:                               \
-        case GL_LIGHT_MODEL_AMBIENT:                     \
-        case GL_SCISSOR_BOX:                             \
-        case GL_SMOOTH_LINE_WIDTH_RANGE:                 \
-        case GL_SMOOTH_POINT_SIZE_RANGE:                 \
-        case GL_VIEWPORT:                                \
-            n = 4;                                       \
-            break;                                       \
-        /* GL_NUM_COMPRESSED_TEXTURE_FORMATS values */   \
-        case GL_COMPRESSED_TEXTURE_FORMATS:              \
-            n = GL_NUM_COMPRESSED_TEXTURE_FORMATS;       \
-            break;                                       \
-        /* sixteen values */                             \
-        case GL_MODELVIEW_MATRIX:                        \
-        case GL_PROJECTION_MATRIX:                       \
-        case GL_TEXTURE_MATRIX:                          \
-            n = 16;                                      \
-            break;                                       \
-    }                                                    \
-    GLfloat *p = (GLfloat *)malloc(sizeof(GLfloat) * n); \
-    gl4es_glGetFloatv(pname, p);		                         \
-    for (i = 0; i < n; i++) {                            \
-        params[i] = (type)p[i];                          \
-    }                                                    \
-    free(p);                                             \
-}
-
-THUNK(Double, GLdouble)
-//THUNK(Integer, GLint)
-//THUNK(Float, GLfloat)
+THUNK(i, GLint, (1.0f/(float)INT_MAX))
+THUNK(s, GLshort, (1.0f/(float)SHRT_MAX))
+THUNK(ub, GLubyte, (1.0f/(float)UCHAR_MAX))
+THUNK(ui, GLuint, (1.0f/(float)UINT_MAX))
+THUNK(us, GLushort, (1.0f/(float)USHRT_MAX))
 
 #undef THUNK
 
@@ -526,9 +447,9 @@ void gl4es_glColor3f(GLfloat r, GLfloat g, GLfloat b) {
 void gl4es_glColor3fv(GLfloat *c) {
     gl4es_glColor4f(c[0], c[1], c[2], 1.0f);
 }
-void gl4es_glColor4fv(GLfloat *c) {
+/*void gl4es_glColor4fv(GLfloat *c) {
     gl4es_glColor4f(c[0], c[1], c[2], c[3]);
-}
+}*/
 void gl4es_glIndexfv(const GLfloat *c) {
     gl4es_glIndexf(*c);
 }
@@ -607,9 +528,9 @@ void gl4es_glMultMatrixd(const GLdouble *m) {
 }
 
 // normal
-void gl4es_glNormal3fv(GLfloat *v) {
+/*void gl4es_glNormal3fv(GLfloat *v) {
     gl4es_glNormal3f(v[0], v[1], v[2]);
-}
+}*/
 
 // textures
 void gl4es_glTexCoord1f(GLfloat s) {
@@ -622,7 +543,8 @@ void gl4es_glTexCoord2f(GLfloat s, GLfloat t) {
     gl4es_glTexCoord4f(s, t, 0, 1);
 }
 void gl4es_glTexCoord2fv(GLfloat *t) {
-    gl4es_glTexCoord4f(t[0], t[1], 0, 1);
+//    gl4es_glTexCoord4f(t[0], t[1], 0, 1);
+    gl4es_glMultiTexCoord2fv(GL_TEXTURE0, t);
 }
 void gl4es_glTexCoord3f(GLfloat s, GLfloat t, GLfloat r) {
     gl4es_glTexCoord4f(s, t, r, 1);
@@ -681,42 +603,15 @@ void gl4es_glVertex2f(GLfloat x, GLfloat y) {
 void gl4es_glVertex2fv(GLfloat *v) {
     gl4es_glVertex4f(v[0], v[1], 0, 1);
 }
-void gl4es_glVertex3fv(GLfloat *v) {
+/*void gl4es_glVertex3fv(GLfloat *v) {
     gl4es_glVertex4f(v[0], v[1], v[2], 1);
-}
+}*/
 void gl4es_glVertex3f(GLfloat r, GLfloat g, GLfloat b) {
     gl4es_glVertex4f(r, g, b, 1);
 }
-void gl4es_glVertex4fv(GLfloat *v) {
+/*void gl4es_glVertex4fv(GLfloat *v) {
     gl4es_glVertex4f(v[0], v[1], v[2], v[3]);
-}
-
-void gl4es_glDrawRangeElements(GLenum mode,GLuint start,GLuint end,GLsizei count,GLenum type,const void *indices) {
-//printf("glDrawRangeElements(%s, %i, %i, %i, %s, @%p), inlist=%i\n", PrintEnum(mode), start, end, count, PrintEnum(type), indices, (state.list.active)?1:0);
-    #if 1
-    gl4es_glDrawElements(mode, count, type, indices);
-    #else
-	GLushort *newinds = (GLushort*)malloc(sizeof(GLushort)*count);
-	int newcount=0;
-    glbuffer_t *elements = state.vao->elements;
-    state.vao->elements = NULL;
-    
-	uintptr_t ptr = (uintptr_t)indices;
-    if (elements)
-        ptr+=(uintptr_t)elements->data;
-    
-	for (int i=0; i<count; i++) {
-		GL_TYPE_SWITCH(indice, ptr, type,
-		if ((indice[i]>=start) && (indice[i]<=end))
-			newinds[newcount++]=indice[i];
-		, );
-	}
-	gl4es_glDrawElements(mode, newcount, GL_UNSIGNED_SHORT, newinds);
-	free(newinds);
-    
-    state.vao->elements = elements;
-    #endif
-}
+}*/
 
 void gl4es_glBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha) {
 	// ignore buf is better than nothing...
@@ -729,28 +624,114 @@ void gl4es_glBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum
 	// TODO: handle buf
 	gl4es_glBlendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
 }
+
 #undef constDoubleToFloat
 
+void gl4es_glGetTexParameterfv(GLenum target, GLenum pname, GLfloat * params) {
+    gl4es_glGetTexLevelParameterfv(target, 0, pname, params);
+}
+ 
+void gl4es_glGetTexParameteriv(GLenum target, GLenum pname, GLint * params) {
+    gl4es_glGetTexLevelParameteriv(target, 0, pname, params);
+}
+
+
+// VertexArray stuff
+void gl4es_glVertexAttrib1f (GLuint index, GLfloat v0) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; gl4es_glVertexAttrib4fv(index, f); };
+void gl4es_glVertexAttrib2f (GLuint index, GLfloat v0, GLfloat v1) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; f[1]=v1; gl4es_glVertexAttrib4fv(index, f); };
+void gl4es_glVertexAttrib3f (GLuint index, GLfloat v0, GLfloat v1, GLfloat v2) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; f[1]=v1; f[2]=v2; gl4es_glVertexAttrib4fv(index, f); };
+void gl4es_glVertexAttrib1fv (GLuint index, const GLfloat *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib2fv (GLuint index, const GLfloat *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; f[1]=v[1]; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib3fv (GLuint index, const GLfloat *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; f[1]=v[1]; f[2]=v[2]; gl4es_glVertexAttrib4fv(index, f); }; \
+void glVertexAttrib1f (GLuint index, GLfloat v0) AliasExport("gl4es_glVertexAttrib1f");
+void glVertexAttrib2f (GLuint index, GLfloat v0, GLfloat v1) AliasExport("gl4es_glVertexAttrib2f");
+void glVertexAttrib3f (GLuint index, GLfloat v0, GLfloat v1, GLfloat v2) AliasExport("gl4es_glVertexAttrib3f");
+void glVertexAttrib1fv (GLuint index, const GLfloat *v) AliasExport("gl4es_glVertexAttrib1fv");
+void glVertexAttrib2fv (GLuint index, const GLfloat *v) AliasExport("gl4es_glVertexAttrib2fv");
+void glVertexAttrib3fv (GLuint index, const GLfloat *v) AliasExport("gl4es_glVertexAttrib3fv");
+#define THUNK(suffix, type) \
+void gl4es_glVertexAttrib1##suffix (GLuint index, type v0) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib2##suffix (GLuint index, type v0, type v1) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; f[1]=v1; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib3##suffix (GLuint index, type v0, type v1, type v2) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; f[1]=v1; f[2]=v2; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib4##suffix (GLuint index, type v0, type v1, type v2, type v3) { GLfloat f[4] = {0,0,0,1}; f[0] =v0; f[1]=v1; f[2]=v2; f[3]=v3; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib1##suffix##v (GLuint index, const type *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib2##suffix##v (GLuint index, const type *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; f[1]=v[1]; gl4es_glVertexAttrib4fv(index, f); }; \
+void gl4es_glVertexAttrib3##suffix##v (GLuint index, const type *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; f[1]=v[1]; f[2]=v[2]; gl4es_glVertexAttrib4fv(index, f); }; \
+void glVertexAttrib1##suffix (GLuint index, type v0) AliasExport("gl4es_glVertexAttrib1"#suffix); \
+void glVertexAttrib2##suffix (GLuint index, type v0, type v1) AliasExport("gl4es_glVertexAttrib2"#suffix); \
+void glVertexAttrib3##suffix (GLuint index, type v0, type v1, type v2) AliasExport("gl4es_glVertexAttrib3"#suffix); \
+void glVertexAttrib4##suffix (GLuint index, type v0, type v1, type v2, type v3) AliasExport("gl4es_glVertexAttrib4"#suffix); \
+void glVertexAttrib1##suffix##v (GLuint index, const type *v) AliasExport("gl4es_glVertexAttrib1"#suffix "v"); \
+void glVertexAttrib2##suffix##v (GLuint index, const type *v) AliasExport("gl4es_glVertexAttrib2"#suffix "v"); \
+void glVertexAttrib3##suffix##v (GLuint index, const type *v) AliasExport("gl4es_glVertexAttrib3"#suffix "v")
+THUNK(s, GLshort);
+THUNK(d, GLdouble);
+#undef THUNK
+void gl4es_glVertexAttrib4dv (GLuint index, const GLdouble *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; f[1]=v[1]; f[2]=v[2]; f[3]=v[3]; gl4es_glVertexAttrib4fv(index, f); };
+void glVertexAttrib4dv (GLuint index, const GLdouble *v) AliasExport("gl4es_glVertexAttrib4dv");
+
+#define THUNK(suffix, type, norm) \
+void gl4es_glVertexAttrib4##suffix##v (GLuint index, const type *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]; f[1]=v[1]; f[2]=v[2]; f[3]=v[3]; gl4es_glVertexAttrib4fv(index, f); }; \
+void glVertexAttrib4##suffix##v (GLuint index, const type *v) AliasExport("gl4es_glVertexAttrib4"#suffix "v"); \
+void gl4es_glVertexAttrib4N##suffix##v (GLuint index, const type *v) { GLfloat f[4] = {0,0,0,1}; f[0] =v[0]/norm; f[1]=v[1]/norm; f[2]=v[2]/norm; f[3]=v[3]/norm; gl4es_glVertexAttrib4fv(index, f); }; \
+void glVertexAttrib4N##suffix##v (GLuint index, const type *v) AliasExport("gl4es_glVertexAttrib4N"#suffix "v")
+THUNK(b, GLbyte, 127.0f);
+THUNK(ub, GLubyte, 255.0f);
+THUNK(s, GLshort, 32767.0f);
+THUNK(us, GLushort, 65535.0f);
+THUNK(i, GLint, 2147483647.0f);
+THUNK(ui, GLuint, 4294967295.0f);
+#undef THUNK
+void gl4es_glVertexAttrib4Nub(GLuint index, GLubyte v0, GLubyte v1, GLubyte v2, GLubyte v3) {GLfloat f[4] = {0,0,0,1}; f[0] =v0/255.f; f[1]=v1/255.f; f[2]=v2/255.f; f[3]=v3/255.f; gl4es_glVertexAttrib4fv(index, f); };
+void glVertexAttrib4Nub(GLuint index, GLubyte v0, GLubyte v1, GLubyte v2, GLubyte v3) AliasExport("gl4es_glVertexAttrib4Nub");
+
+// ============= GL_ARB_vertex_shader =================
+GLvoid glVertexAttrib1fARB(GLuint index, GLfloat v0) AliasExport("gl4es_glVertexAttrib1f");
+GLvoid glVertexAttrib1sARB(GLuint index, GLshort v0) AliasExport("gl4es_glVertexAttrib1s");
+GLvoid glVertexAttrib1dARB(GLuint index, GLdouble v0) AliasExport("gl4es_glVertexAttrib1d");
+GLvoid glVertexAttrib2fARB(GLuint index, GLfloat v0, GLfloat v1) AliasExport("gl4es_glVertexAttrib2f");
+GLvoid glVertexAttrib2sARB(GLuint index, GLshort v0, GLshort v1) AliasExport("gl4es_glVertexAttrib2s");
+GLvoid glVertexAttrib2dARB(GLuint index, GLdouble v0, GLdouble v1) AliasExport("gl4es_glVertexAttrib2d");
+GLvoid glVertexAttrib3fARB(GLuint index, GLfloat v0, GLfloat v1, GLfloat v2) AliasExport("gl4es_glVertexAttrib3f");
+GLvoid glVertexAttrib3sARB(GLuint index, GLshort v0, GLshort v1, GLshort v2) AliasExport("gl4es_glVertexAttrib3s");
+GLvoid glVertexAttrib3dARB(GLuint index, GLdouble v0, GLdouble v1, GLdouble v2) AliasExport("gl4es_glVertexAttrib3d");
+GLvoid glVertexAttrib4sARB(GLuint index, GLshort v0, GLshort v1, GLshort v2, GLshort v3) AliasExport("gl4es_glVertexAttrib4s");
+GLvoid glVertexAttrib4dARB(GLuint index, GLdouble v0, GLdouble v1, GLdouble v2, GLdouble v3) AliasExport("gl4es_glVertexAttrib4d");
+GLvoid glVertexAttrib4NubARB(GLuint index, GLubyte x, GLubyte y, GLubyte z, GLubyte w) AliasExport("gl4es_glVertexAttrib4Nub");
+
+GLvoid glVertexAttrib1fvARB(GLuint index, const GLfloat *v) AliasExport("gl4es_glVertexAttrib1fv");
+GLvoid glVertexAttrib1svARB(GLuint index, const GLshort *v) AliasExport("gl4es_glVertexAttrib1sv");
+GLvoid glVertexAttrib1dvARB(GLuint index, const GLdouble *v) AliasExport("gl4es_glVertexAttrib1dv");
+GLvoid glVertexAttrib2fvARB(GLuint index, const GLfloat *v) AliasExport("gl4es_glVertexAttrib2fv");
+GLvoid glVertexAttrib2svARB(GLuint index, const GLshort *v) AliasExport("gl4es_glVertexAttrib2sv");
+GLvoid glVertexAttrib2dvARB(GLuint index, const GLdouble *v) AliasExport("gl4es_glVertexAttrib2dv");
+GLvoid glVertexAttrib3fvARB(GLuint index, const GLfloat *v) AliasExport("gl4es_glVertexAttrib3fv");
+GLvoid glVertexAttrib3svARB(GLuint index, const GLshort *v) AliasExport("gl4es_glVertexAttrib3sv");
+GLvoid glVertexAttrib3dvARB(GLuint index, const GLdouble *v) AliasExport("gl4es_glVertexAttrib3dv");
+GLvoid glVertexAttrib4svARB(GLuint index, const GLshort *v) AliasExport("gl4es_glVertexAttrib4sv");
+GLvoid glVertexAttrib4dvARB(GLuint index, const GLdouble *v) AliasExport("gl4es_glVertexAttrib4dv");
+GLvoid glVertexAttrib4ivARB(GLuint index, const GLint *v) AliasExport("gl4es_glVertexAttrib4iv");
+GLvoid glVertexAttrib4bvARB(GLuint index, const GLbyte *v) AliasExport("gl4es_glVertexAttrib4bv");
+
+GLvoid glVertexAttrib4ubvARB(GLuint index, const GLubyte *v) AliasExport("gl4es_glVertexAttrib4ubv");
+GLvoid glVertexAttrib4usvARB(GLuint index, const GLushort *v) AliasExport("gl4es_glVertexAttrib4usv");
+GLvoid glVertexAttrib4uivARB(GLuint index, const GLuint *v) AliasExport("gl4es_glVertexAttrib4uiv");
+
+GLvoid glVertexAttrib4NbvARB(GLuint index, const GLbyte *v) AliasExport("gl4es_glVertexAttrib4Nbv");
+GLvoid glVertexAttrib4NsvARB(GLuint index, const GLshort *v) AliasExport("gl4es_glVertexAttrib4Nsv");
+GLvoid glVertexAttrib4NivARB(GLuint index, const GLint *v) AliasExport("gl4es_glVertexAttrib4Niv");
+GLvoid glVertexAttrib4NubvARB(GLuint index, const GLubyte *v) AliasExport("gl4es_glVertexAttrib4Nubv");
+GLvoid glVertexAttrib4NusvARB(GLuint index, const GLushort *v) AliasExport("gl4es_glVertexAttrib4Nusv");
+GLvoid glVertexAttrib4NuivARB(GLuint index, const GLuint *v) AliasExport("gl4es_glVertexAttrib4Nuiv");
+
+
 //Direct wrapper
-#ifdef USE_ES2
-void glCompileShader(GLuint shader) AliasExport("gl4es_glCompileShader");
-GLuint glCreateShaderObject(GLenum shaderType) AliasExport("gl4es_glCreateShaderObject");
-void glGetObjectParameteriv(GLuint shader, GLenum pname, GLint *params) AliasExport("gl4es_glGetObjectParameteriv");
-void glShaderSource(GLuint shader, GLsizei count, const GLchar **string, const GLint *length) AliasExport("gl4es_glShaderSource");
-
-void glCompileShaderARB(GLuint shader) AliasExport("gl4es_glCompileShader");
-GLuint glCreateShaderObjectARB(GLenum shaderType) AliasExport("gl4es_glCreateShaderObject");
-void glGetObjectParameterivARB(GLuint shader, GLenum pname, GLint *params) AliasExport("gl4es_glGetObjectParameteriv");
-void glShaderSourceARB(GLuint shader, GLsizei count, const GLchar **string, const GLint *length) AliasExport("gl4es_glShaderSource");
-#endif
-
 void glClearDepth(GLdouble depth) AliasExport("gl4es_glClearDepth");
 void glClipPlane(GLenum plane, const GLdouble *equation) AliasExport("gl4es_glClipPlane");
 void glDepthRange(GLdouble nearVal, GLdouble farVal) AliasExport("gl4es_glDepthRange");
 void glFogi(GLenum pname, GLint param) AliasExport("gl4es_glFogi");
 void glFogiv(GLenum pname, GLint *params) AliasExport("gl4es_glFogiv");
 void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble near, GLdouble far) AliasExport("gl4es_glFrustum");
-void glGetDoublev(GLenum pname, GLdouble *params) AliasExport("gl4es_glGetDoublev");
 void glLighti(GLenum light, GLenum pname, GLint param) AliasExport("gl4es_glLighti");
 void glLightiv(GLenum light, GLenum pname, GLint *iparams) AliasExport("gl4es_glLightiv");
 void glLightModeli(GLenum pname, GLint param) AliasExport("gl4es_glLightModeli");
@@ -761,10 +742,10 @@ void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdou
 void glGetMaterialiv(GLenum face, GLenum pname, GLint * params) AliasExport("gl4es_glGetMaterialiv");
 void glGetLightiv(GLenum light, GLenum pname, GLint * params) AliasExport("gl4es_glGetLightiv");
 void glGetClipPlane(GLenum plane, GLdouble *equation) AliasExport("gl4es_glGetClipPlane");
-void glDrawRangeElements(GLenum mode,GLuint start,GLuint end,GLsizei count,GLenum type,const void *indices) AliasExport("gl4es_glDrawRangeElements");
+//void glDrawRangeElements(GLenum mode,GLuint start,GLuint end,GLsizei count,GLenum type,const void *indices) AliasExport("gl4es_glDrawRangeElements");
 void glColor3f(GLfloat r, GLfloat g, GLfloat b) AliasExport("gl4es_glColor3f");
 void glColor3fv(GLfloat *c) AliasExport("gl4es_glColor3fv");
-void glColor4fv(GLfloat *c) AliasExport("gl4es_glColor4fv");
+//void glColor4fv(GLfloat *c) AliasExport("gl4es_glColor4fv");
 void glIndexfv(const GLfloat *c) AliasExport("gl4es_glIndexfv");
 void glSecondaryColor3fv(const GLfloat *v) AliasExport("gl4es_glSecondaryColor3fv");
 void glRasterPos2f(GLfloat x, GLfloat y) AliasExport("gl4es_glRasterPos2f");
@@ -789,7 +770,7 @@ void glMapGrid1d(GLint un, GLdouble u1, GLdouble u2) AliasExport("gl4es_glMapGri
 void glMapGrid2d(GLint un, GLdouble u1, GLdouble u2, GLint vn, GLdouble v1, GLdouble v2) AliasExport("gl4es_glMapGrid2d");
 void glLoadMatrixd(const GLdouble *m) AliasExport("gl4es_glLoadMatrixd");
 void glMultMatrixd(const GLdouble *m) AliasExport("gl4es_glMultMatrixd");
-void glNormal3fv(GLfloat *v) AliasExport("gl4es_glNormal3fv");
+//void glNormal3fv(GLfloat *v) AliasExport("gl4es_glNormal3fv");
 
 // rect
 #define GL_RECT(suffix, type)                                \
@@ -812,10 +793,10 @@ void glTexCoord4fv(GLfloat *t) AliasExport("gl4es_glTexCoord4fv");
 void glMultiTexCoord1f(GLenum target, GLfloat s) AliasExport("gl4es_glMultiTexCoord1f");
 void glMultiTexCoord1fv(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord1fv");
 void glMultiTexCoord2f(GLenum target, GLfloat s, GLfloat t) AliasExport("gl4es_glMultiTexCoord2f");
-void glMultiTexCoord2fv(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord2fv");
+//void glMultiTexCoord2fv(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord2fv");
 void glMultiTexCoord3f(GLenum target, GLfloat s, GLfloat t, GLfloat r) AliasExport("gl4es_glMultiTexCoord3f");
 void glMultiTexCoord3fv(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord3fv");
-void glMultiTexCoord4fv(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord4fv");
+//void glMultiTexCoord4fv(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord4fv");
 void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat *params) AliasExport("gl4es_glGetTexLevelParameterfv");
 void glTexGend(GLenum coord, GLenum pname, GLdouble param) AliasExport("gl4es_glTexGend");
 void glTexGenf(GLenum coord, GLenum pname, GLfloat param) AliasExport("gl4es_glTexGenf");
@@ -827,8 +808,8 @@ void glTranslated(GLdouble x, GLdouble y, GLdouble z) AliasExport("gl4es_glTrans
 void glVertex2f(GLfloat x, GLfloat y) AliasExport("gl4es_glVertex2f");
 void glVertex2fv(GLfloat *v) AliasExport("gl4es_glVertex2fv");
 void glVertex3f(GLfloat r, GLfloat g, GLfloat b) AliasExport("gl4es_glVertex3f");
-void glVertex3fv(GLfloat *v) AliasExport("gl4es_glVertex3fv");
-void glVertex4fv(GLfloat *v) AliasExport("gl4es_glVertex4fv");
+/*void glVertex3fv(GLfloat *v) AliasExport("gl4es_glVertex3fv");
+void glVertex4fv(GLfloat *v) AliasExport("gl4es_glVertex4fv");*/
 
 // basic thunking
 
@@ -893,17 +874,12 @@ THUNK(ui, GLuint)
 THUNK(us, GLushort)
 #undef THUNK
 
-#define THUNK(suffix, type) \
-    extern void glGet##suffix##v(GLenum pname, type *params);
-
-THUNK(Double, GLdouble)
-THUNK(Integer, GLint)
-THUNK(Float, GLfloat)
-#undef THUNK
-
 void glMultiTexCoord2fARB(GLenum target, GLfloat s, GLfloat t) AliasExport("gl4es_glMultiTexCoord2f");
 void glMultiTexCoord3fARB(GLenum target, GLfloat s, GLfloat t, GLfloat r) AliasExport("gl4es_glMultiTexCoord3f");
-void glMultiTexCoord2fvARB(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord2fv");
+//void glMultiTexCoord2fvARB(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord2fv");
 void glMultiTexCoord3fvARB(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord3fv");
-void glMultiTexCoord4fvARB(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord4fv");
-void glDrawRangeElementsEXT(GLenum mode,GLuint start,GLuint end,GLsizei count,GLenum type,const void *indices) AliasExport("gl4es_glDrawRangeElements");
+//void glMultiTexCoord4fvARB(GLenum target, GLfloat *t) AliasExport("gl4es_glMultiTexCoord4fv");
+//void glDrawRangeElementsEXT(GLenum mode,GLuint start,GLuint end,GLsizei count,GLenum type,const void *indices) AliasExport("gl4es_glDrawRangeElements");
+
+void glGetTexParameterfv(GLenum target, GLenum pname, GLfloat * params) AliasExport("gl4es_glGetTexParameterfv");
+void glGetTexParameteriv(GLenum target, GLenum pname, GLint * params) AliasExport("gl4es_glGetTexParameteriv");

@@ -12,10 +12,12 @@ typedef struct {
     GLfloat r, g, b, a;
 } pixel_t;
 
+#define widthalign(width, align) ((((uintptr_t)(width))+((uintptr_t)(align)-1))&(~((uintptr_t)(align)-1)))
+
 bool pixel_convert(const GLvoid *src, GLvoid **dst,
                    GLuint width, GLuint height,
                    GLenum src_format, GLenum src_type,
-                   GLenum dst_format, GLenum dst_type, GLuint stride);
+                   GLenum dst_format, GLenum dst_type, GLuint stride, GLuint align);
 
 bool pixel_transform(const GLvoid *src, GLvoid **dst,
                    GLuint width, GLuint height,
@@ -45,6 +47,6 @@ bool pixel_doublescale(const GLvoid *src, GLvoid **dst,
 
 bool pixel_to_ppm(const GLvoid *pixels,
                   GLuint width, GLuint height,
-                  GLenum format, GLenum type, GLuint name);
+                  GLenum format, GLenum type, GLuint name, GLuint align);
 
 #endif

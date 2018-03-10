@@ -7,7 +7,6 @@
 
 typedef struct _globals4es {
  int nobanner;
- int batch;
  int mergelist;
  int xrefresh;
  int stacktrace;
@@ -34,11 +33,22 @@ typedef struct _globals4es {
  int silentstub;
  int glx_surface_srgb;
  int nodownsampling;
+ int vabgra;
+ int nobgra;
+ int potframebuffer;
 #ifdef PANDORA
  float gamma;
 #endif
  int texmat;
  int novaocache;
+ int beginend;
+ int avoid16bits;
+ int avoid24bits;
+ int nohighp;
+ int es;
+ int gl;
+ int usevbo;
+ int comments;
  char version[50];
 } globals4es_t;
 

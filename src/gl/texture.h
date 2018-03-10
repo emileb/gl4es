@@ -1,4 +1,5 @@
 #include "gl.h"
+#include "buffers.h"
 
 #ifndef GL_TEXTURE_H
 #define GL_TEXTURE_H
@@ -75,15 +76,7 @@ void gl4es_glCopyTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLint 
 void gl4es_glCopyTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset,
                                 GLint x, GLint y, GLsizei width, GLsizei height);
 
-void gl4es_glTexEnvf(GLenum target, GLenum pname, GLfloat param);
-void gl4es_glTexEnvi(GLenum target, GLenum pname, GLint param);
-void gl4es_glTexEnvfv(GLenum target, GLenum pname, const GLfloat *param);
-void gl4es_glTexEnviv(GLenum target, GLenum pname, const GLint *param);
-void gl4es_glGetTexEnvfv(GLenum target, GLenum pname, GLfloat * params);
-void gl4es_glGetTexEnviv(GLenum target, GLenum pname, GLint * params);
-
-                               
-void tex_coord_rect_arb(GLfloat *tex, GLsizei len,
+void tex_coord_rect_arb(GLfloat *tex, int stride, GLsizei len,
                         GLsizei width, GLsizei height);
 void tex_coord_npot(GLfloat *tex, GLsizei len,
                     GLsizei width, GLsizei height,
@@ -114,6 +107,7 @@ typedef struct {
     GLenum  type;
     GLenum  orig_internal;
     GLenum  internalformat;
+    GLenum  inter_format, inter_type;
     int shrink;
     GLboolean mipmap_auto;
     GLboolean mipmap_need;
@@ -124,10 +118,15 @@ typedef struct {
     GLboolean uploaded;
     GLboolean alpha;
     GLboolean compressed;
-	GLboolean streamed;
+    GLboolean streamed;
+    int valid;
 	int	streamingID;
     int base_level;
     int max_level;
+    int aniso;
+    int fpe_format; // tracking simplified internal format for FPE
+    int adjust; // flag if width/height has to be adjusted
+    float adjustxy[2];  // adjust factor
     GLvoid *data;	// in case we want to keep a copy of it (it that case, always RGBA/GL_UNSIGNED_BYTE
 } gltexture_t;
 
@@ -186,8 +185,12 @@ static inline GLenum to_target(GLuint itarget) {
             return GL_TEXTURE_2D;
     }
 }
+#define IS_TEX1D(T) (T&(1<<ENABLED_TEX1D))
 #define IS_TEX2D(T) (T&(1<<ENABLED_TEX2D))
+#define IS_TEX3D(T) (T&(1<<ENABLED_TEX3D))
+#define IS_TEXTURE_RECTANGLE(T) (T&(1<<ENABLED_TEXTURE_RECTANGLE))
 #define IS_ANYTEX(T) (T&((1<<ENABLED_TEX2D)|(1<<ENABLED_TEX1D)|(1<<ENABLED_TEX3D)|(1<<ENABLED_TEXTURE_RECTANGLE)))
+#define IS_CUBE_MAP(T) (T&(1<<ENABLED_CUBE_MAP))
 
 static inline GLint get_target(GLuint enabled) {
     if(!enabled)
@@ -205,6 +208,10 @@ void gl4es_glClientActiveTexture( GLenum texture );
 void gl4es_glMultiTexCoord2f( GLenum target, GLfloat s, GLfloat t );
 GLboolean gl4es_glIsTexture( GLuint texture );
 
-void tex_setup_texcoord(GLuint len, GLuint texture);
+int  tex_setup_needchange(GLuint itarget);
+void tex_setup_texcoord(GLuint len, int changes, GLuint texture, pointer_state_t* ptr);
+
+void realize_bound(int TMU, GLenum target);
+void realize_textures();
 
 #endif

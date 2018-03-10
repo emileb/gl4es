@@ -19,11 +19,17 @@
 #define GL_NOLUMAPHA_HINT_GL4ES         0xA107
 // same as using LIBGL_BLENDHACK=x
 #define GL_BLENDHACK_HINT_GL4ES         0xA108
-// same as using LIBGL_BATCH=x
+// REMOVED same as using LIBGL_BATCH=x 
 #define GL_BATCH_HINT_GL4ES             0xA109
 // same as using LIBGL_NOERROR=x
 #define GL_NOERROR_HINT_GL4ES           0xA10A
 // same as using LIBGL_NODOWNSAMPLING=x
 #define GL_NODOWNSAMPLING_HINT_GL4ES	0xA10B
+// same as using LIBGL_NOVAOCACHE=x
+#define GL_NOVAOCACHE_HINT_GL4ES	    0xA10C
+// same as using LIBGL_BEGINEND=x
+#define GL_BEGINEND_HINT_GL4ES	        0xA10D
+// same as using LIBGL_AVOID16BITS=x
+#define GL_AVOID16BITS_HINT_GL4ES	    0xA10E
 
 #endif

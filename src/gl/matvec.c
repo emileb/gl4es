@@ -24,6 +24,13 @@ float FASTMATH dot4(const float *a, const float *b) {
 #endif
 }
 
+float cross3(const float *a, const float *b, float* c) {
+    //TODO Neonize? Cross product doesn't seems NEON friendly, and this is not much used.
+    c[0] = a[1]*b[2] - a[2]*b[1];
+    c[1] = a[3]*b[0] - a[0]*b[3];
+    c[2] = a[0]*b[1] - a[1]*b[0];
+}
+
 void matrix_vector(const float *a, const float *b, float *c) {
 #ifdef __ARM_NEON__
     const float* a1 = a+8;
@@ -82,9 +89,9 @@ void vector3_matrix(const float *a, const float *b, float *c) {
     const float* b4=b+12;
     asm volatile (
     //"vld1.f32 {q0}, [%1]        \n" // %q0 = a(0..2)
-    "vld1.32  {d4}, [%1]        \n"
-    "flds     s10, [%1, #8]     \n"
-    "vsub.f32 s11, s11, s11     \n"
+    "vld1.32  {d0}, [%1]        \n"
+    "flds     s2, [%1, #8]      \n"
+    "vsub.f32 s3, s3, s3        \n"
     "vld1.f32 {q1}, [%2]        \n" // %q1 = b(0..3)
     "vmul.f32 q1, q1, d0[0]    \n" // %q1 = b(0..3)*a[0]
     "vld1.f32 {q2}, [%3]   \n" // %q2 = b(4..7)
@@ -103,6 +110,18 @@ void vector3_matrix(const float *a, const float *b, float *c) {
     c[2] = a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + b[14];
     c[3] = a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + b[15];
 #endif
+}
+
+void vector3_matrix4(const float *a, const float *b, float *c) {
+    c[0] = a[0] * b[0] + a[1] * b[4] + a[2] * b[8];
+    c[1] = a[0] * b[1] + a[1] * b[5] + a[2] * b[9];
+    c[2] = a[0] * b[2] + a[1] * b[6] + a[2] * b[10];
+}
+
+void vector3_matrix3(const float *a, const float *b, float *c) {
+    c[0] = a[0] * b[0] + a[1] * b[3] + a[2] * b[6];
+    c[1] = a[0] * b[1] + a[1] * b[4] + a[2] * b[7];
+    c[2] = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
 }
 
 void vector_normalize(float *a) {
@@ -220,6 +239,24 @@ void matrix_inverse(const float *m, float *r) {
     for (int i = 0; i < 16; i++) r[i] *= det;
 }
 
+void matrix_inverse3_transpose(const float *m, float *r) {
+    
+    r[0] = m[4+1]*m[8+2] - m[4+2]*m[8+1];
+    r[1] = m[4+2]*m[8+0] - m[4+0]*m[8+2];
+    r[2] = m[4+0]*m[8+1] - m[4+1]*m[8+0];
+
+    r[3] = m[0+2]*m[8+1] - m[0+1]*m[8+2];
+    r[4] = m[0+0]*m[8+2] - m[0+2]*m[8+0];
+    r[5] = m[0+1]*m[8+0] - m[0+0]*m[8+1];
+
+    r[6] = m[0+1]*m[4+2] - m[0+2]*m[4+1];
+    r[7] = m[0+2]*m[4+0] - m[0+0]*m[4+2];
+    r[8] = m[0+0]*m[4+1] - m[0+1]*m[4+0];
+
+    float det = 1.0f/(m[0]*r[0] + m[4+0]*r[3] + m[8+0]*r[6]);
+    for (int i = 0; i < 9; i++) r[i] *= det;
+}
+    
 void matrix_mul(const float *a, const float *b, float *c) {
 #ifdef __ARM_NEON__
     const float* a1 = a+8;
@@ -284,6 +321,24 @@ void matrix_mul(const float *a, const float *b, float *c) {
 #endif
 }
 
+void vector4_mult(const float *a, const float *b, float *c) {
+//TODO: NEON version of this
+    for (int i=0; i<4; i++)
+        c[i] = a[i]*b[i];
+}
+
+void vector4_add(const float *a, const float *b, float *c) {
+//TODO: NEON version of this
+    for (int i=0; i<4; i++)
+        c[i] = a[i]+b[i];
+}
+
+void vector4_sub(const float *a, const float *b, float *c) {
+    //TODO: NEON version of this
+        for (int i=0; i<4; i++)
+            c[i] = a[i]-b[i];
+}
+    
 void set_identity(float* mat) {
     memset(mat, 0, 16*sizeof(GLfloat));
     mat[0] = mat[1+4] = mat[2+8] = mat[3+12] = 1.0f;

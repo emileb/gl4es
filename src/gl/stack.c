@@ -6,7 +6,7 @@ void gl4es_glPushAttrib(GLbitfield mask) {
     //printf("glPushAttrib(0x%04X)\n", mask);
     noerrorShim();
     if (glstate->list.active)
-        if (glstate->list.compiling || glstate->gl_batch) {
+        if (glstate->list.compiling) {
             NewStage(glstate->list.active, STAGE_PUSH);
             glstate->list.active->pushattribute = mask;
             return;
@@ -64,15 +64,13 @@ void gl4es_glPushAttrib(GLbitfield mask) {
 
     if (mask & GL_ENABLE_BIT) {
         int i;
-        GLint max_clip_planes;
 
         cur->alpha_test = gl4es_glIsEnabled(GL_ALPHA_TEST);
         cur->autonormal = gl4es_glIsEnabled(GL_AUTO_NORMAL);
         cur->blend = gl4es_glIsEnabled(GL_BLEND);
         
-        gl4es_glGetIntegerv(GL_MAX_CLIP_PLANES, &max_clip_planes);
-        cur->clip_planes_enabled = (GLboolean *)malloc(max_clip_planes * sizeof(GLboolean));
-        for (i = 0; i < max_clip_planes; i++) {
+        cur->clip_planes_enabled = (GLboolean *)malloc(hardext.maxplanes * sizeof(GLboolean));
+        for (i = 0; i < hardext.maxplanes; i++) {
             *(cur->clip_planes_enabled + i) = gl4es_glIsEnabled(GL_CLIP_PLANE0 + i);
         }
 
@@ -251,7 +249,7 @@ void gl4es_glPushAttrib(GLbitfield mask) {
             cur->texgen_q[a] = glstate->enable.texgen_q[a];
             cur->texgen[a] = glstate->texgen[a];   // all mode and planes per texture in 1 line
             for (int j=0; j<ENABLED_TEXTURE_LAST; j++)
-	            cur->texture[a][j] = (glstate->texture.bound[a][j])?glstate->texture.bound[a][j]->texture:0;
+	            cur->texture[a][j] = glstate->texture.bound[a][j]->texture;
         }
         //glActiveTexture(GL_TEXTURE0+cur->active);
     }
@@ -260,10 +258,8 @@ void gl4es_glPushAttrib(GLbitfield mask) {
     if (mask & GL_TRANSFORM_BIT) {
 		if (!(mask & GL_ENABLE_BIT)) {
 			int i;
-			GLint max_clip_planes;
-			gl4es_glGetIntegerv(GL_MAX_CLIP_PLANES, &max_clip_planes);
-			cur->clip_planes_enabled = (GLboolean *)malloc(max_clip_planes * sizeof(GLboolean));
-			for (i = 0; i < max_clip_planes; i++) {
+			cur->clip_planes_enabled = (GLboolean *)malloc(hardext.maxplanes * sizeof(GLboolean));
+			for (i = 0; i < hardext.maxplanes; i++) {
 				*(cur->clip_planes_enabled + i) = gl4es_glIsEnabled(GL_CLIP_PLANE0 + i);
 			}
 		}
@@ -282,10 +278,8 @@ void gl4es_glPushAttrib(GLbitfield mask) {
 
 void gl4es_glPushClientAttrib(GLbitfield mask) {
     noerrorShim();
-     GLuint old_glbatch = glstate->gl_batch;
-     if (glstate->gl_batch || glstate->list.pending) {
+     if (glstate->list.pending) {
          flush();
-         glstate->gl_batch = 0;
      }
     if (glstate->clientStack == NULL) {
         glstate->clientStack = (glclientstack_t *)malloc(STACK_SIZE * sizeof(glclientstack_t));
@@ -311,20 +305,20 @@ void gl4es_glPushClientAttrib(GLbitfield mask) {
     }
 
     if (mask & GL_CLIENT_VERTEX_ARRAY_BIT) {
-        cur->vert_enable = glstate->vao->vertex_array;
-        cur->color_enable = glstate->vao->color_array;
-        cur->secondary_enable = glstate->vao->secondary_array;
-        cur->normal_enable = glstate->vao->normal_array;
+        cur->vert_enable = glstate->vao->pointers[ATT_VERTEX].enabled;
+        cur->color_enable = glstate->vao->pointers[ATT_COLOR].enabled;
+        cur->secondary_enable = glstate->vao->pointers[ATT_SECONDARY].enabled;
+        cur->normal_enable = glstate->vao->pointers[ATT_NORMAL].enabled;
+        cur->fog_enable = glstate->vao->pointers[ATT_FOGCOORD].enabled;
         int a;
         for (a=0; a<hardext.maxtex; a++) {
-           cur->tex_enable[a] = glstate->vao->tex_coord_array[a];
+           cur->tex_enable[a] = glstate->vao->pointers[ATT_MULTITEXCOORD0+a].enabled;
         }
-        memcpy(&(cur->pointers), &glstate->vao->pointers, sizeof(pointer_states_t));
+        memcpy(&(cur->pointers), &glstate->vao->pointers, sizeof(glstate->vao->pointers));
         cur->client = glstate->texture.client;
     }
 
     glstate->clientStack->len++;
-    glstate->gl_batch=old_glbatch;
 }
 
 #define maybe_free(x) \
@@ -342,7 +336,7 @@ void gl4es_glPopAttrib() {
 //printf("glPopAttrib()\n");
     noerrorShim();
     if (glstate->list.active)
-        if (glstate->list.compiling || glstate->gl_batch) {
+        if (glstate->list.compiling) {
             NewStage(glstate->list.active, STAGE_POP);
 		    glstate->list.active->popattribute = true;
 		    return;
@@ -391,9 +385,7 @@ void gl4es_glPopAttrib() {
         enable_disable(GL_AUTO_NORMAL, cur->autonormal);
         enable_disable(GL_BLEND, cur->blend);
 
-        GLint max_clip_planes;
-        gl4es_glGetIntegerv(GL_MAX_CLIP_PLANES, &max_clip_planes);
-        for (i = 0; i < max_clip_planes; i++) {
+        for (i = 0; i < hardext.maxplanes; i++) {
             enable_disable(GL_CLIP_PLANE0 + i, *(cur->clip_planes_enabled + i));
         }
 
@@ -570,9 +562,9 @@ void gl4es_glPopAttrib() {
             glstate->enable.texgen_q[a] = cur->texgen_q[a];
             glstate->texgen[a] = cur->texgen[a];   // all mode and planes per texture in 1 line
             for (int j=0; j<ENABLED_TEXTURE_LAST; j++)
-                if ((cur->texture[a][j]==0 && glstate->texture.bound[a][j] != 0) || (cur->texture[a][j]!=0 && glstate->texture.bound[a][j]==0)) {
-                gl4es_glActiveTexture(GL_TEXTURE0+a);
-                gl4es_glBindTexture(to_target(j), cur->texture[a][j]);
+                if (cur->texture[a][j] != glstate->texture.bound[a][j]->texture) {
+                    gl4es_glActiveTexture(GL_TEXTURE0+a);
+                    gl4es_glBindTexture(to_target(j), cur->texture[a][j]);
                 }
         }
         if (glstate->texture.active!= cur->active) gl4es_glActiveTexture(GL_TEXTURE0+cur->active);
@@ -592,9 +584,7 @@ void gl4es_glPopAttrib() {
 	if (cur->mask & GL_TRANSFORM_BIT) {
 		if (!(cur->mask & GL_ENABLE_BIT)) {
 			int i;
-			GLint max_clip_planes;
-			gl4es_glGetIntegerv(GL_MAX_CLIP_PLANES, &max_clip_planes);
-			for (i = 0; i < max_clip_planes; i++) {
+			for (i = 0; i < hardext.maxplanes; i++) {
 				enable_disable(GL_CLIP_PLANE0 + i, *(cur->clip_planes_enabled + i));
 			}
 		}
@@ -623,10 +613,8 @@ void gl4es_glPopAttrib() {
 
 void gl4es_glPopClientAttrib() {
     noerrorShim();
-     GLuint old_glbatch = glstate->gl_batch;
-     if (glstate->gl_batch || glstate->list.pending) {
+     if (glstate->list.pending) {
          flush();
-         glstate->gl_batch = 0;
      }
 	//LOAD_GLES(glVertexPointer);
 	//LOAD_GLES(glColorPointer);
@@ -651,27 +639,28 @@ void gl4es_glPopClientAttrib() {
     }
 
     if (cur->mask & GL_CLIENT_VERTEX_ARRAY_BIT) {
-		if (glstate->vao->vertex_array != cur->vert_enable)
+		if (glstate->vao->pointers[ATT_VERTEX].enabled != cur->vert_enable)
 			enable_disable(GL_VERTEX_ARRAY, cur->vert_enable);
-		if (glstate->vao->normal_array != cur->normal_enable)
+		if (glstate->vao->pointers[ATT_NORMAL].enabled != cur->normal_enable)
 			enable_disable(GL_NORMAL_ARRAY, cur->normal_enable);
-		if (glstate->vao->color_array != cur->color_enable)
+		if (glstate->vao->pointers[ATT_COLOR].enabled != cur->color_enable)
 			enable_disable(GL_COLOR_ARRAY, cur->color_enable);
-		if (glstate->vao->secondary_array != cur->secondary_enable)
+		if (glstate->vao->pointers[ATT_SECONDARY].enabled != cur->secondary_enable)
 			enable_disable(GL_SECONDARY_COLOR_ARRAY, cur->secondary_enable);
+		if (glstate->vao->pointers[ATT_FOGCOORD].enabled != cur->fog_enable)
+			enable_disable(GL_COLOR_ARRAY, cur->fog_enable);
         for (int a=0; a<hardext.maxtex; a++) {
-		   if (glstate->vao->tex_coord_array[a] != cur->tex_enable[a]) {
+		   if (glstate->vao->pointers[ATT_MULTITEXCOORD0+a].enabled != cur->tex_enable[a]) {
 			   gl4es_glClientActiveTexture(GL_TEXTURE0+a);
 			   enable_disable(GL_TEXTURE_COORD_ARRAY, cur->tex_enable[a]);
 		   }
         }
 
-        memcpy(&glstate->vao->pointers, &(cur->pointers), sizeof(pointer_states_t));
+        memcpy(&glstate->vao->pointers, &(cur->pointers), sizeof(glstate->vao->pointers));
 		if (glstate->texture.client != cur->client) gl4es_glClientActiveTexture(GL_TEXTURE0+cur->client);
     }
 
     glstate->clientStack->len--;
-    glstate->gl_batch = old_glbatch;
 }
 
 #undef maybe_free

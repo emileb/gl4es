@@ -25,7 +25,7 @@ void gl4es_glTexGenfv(GLenum coord, GLenum pname, const GLfloat *param) {
     //printf("glTexGenf(%s, %s, %s/%f), texture=%i\n", PrintEnum(coord), PrintEnum(pname), PrintEnum(param[0]), param[0], glstate->texture.active);
     ERROR_IN_BEGIN
     if (glstate->list.active)
-        if (glstate->list.compiling || glstate->gl_batch) {
+        if (glstate->list.compiling) {
             NewStage(glstate->list.active, STAGE_TEXGEN);
             rlTexGenfv(glstate->list.active, coord, pname, param);
             noerrorShim();
@@ -35,16 +35,40 @@ void gl4es_glTexGenfv(GLenum coord, GLenum pname, const GLfloat *param) {
     // pname is in: GL_TEXTURE_GEN_MODE, GL_OBJECT_PLANE, GL_EYE_PLANE
     noerrorShim();
     switch(pname) {
-        case GL_TEXTURE_GEN_MODE:
+        case GL_TEXTURE_GEN_MODE: {
+            int mode = -1;
+            int n;
+            if(glstate->fpe_state) {
+                int p = param[0];
+                switch (p) {
+                    case GL_OBJECT_LINEAR: mode = FPE_TG_OBJLINEAR; break;
+                    case GL_EYE_LINEAR: mode = FPE_TG_EYELINEAR; break;
+                    case GL_SPHERE_MAP: mode = FPE_TG_SPHEREMAP; break;
+                    case GL_NORMAL_MAP: mode = FPE_TG_NORMALMAP; break;
+                    case GL_REFLECTION_MAP: mode = FPE_TG_REFLECMAP; break;
+                }
+                n = glstate->texture.active*3;
+            }
             switch (coord) {
-                case GL_S: glstate->texgen[glstate->texture.active].S = param[0]; break;
-                case GL_T: glstate->texgen[glstate->texture.active].T = param[0]; break;
-                case GL_R: glstate->texgen[glstate->texture.active].R = param[0]; break;
-                case GL_Q: glstate->texgen[glstate->texture.active].Q = param[0]; break;
+                case GL_S: glstate->texgen[glstate->texture.active].S = param[0]; if(mode!=-1) { glstate->fpe_state->texgen_s_mode&=~(7<<n); glstate->fpe_state->texgen_s_mode|=(mode<<n); } break;
+                case GL_T: glstate->texgen[glstate->texture.active].T = param[0]; if(mode!=-1) { glstate->fpe_state->texgen_t_mode&=~(7<<n); glstate->fpe_state->texgen_t_mode|=(mode<<n); } break;
+                case GL_R: 
+                    if(param[0]==GL_SPHERE_MAP) {
+                        errorShim(GL_INVALID_ENUM);
+                        return;
+                    }
+                    glstate->texgen[glstate->texture.active].R = param[0]; if(mode!=-1) { glstate->fpe_state->texgen_r_mode&=~(7<<n); glstate->fpe_state->texgen_r_mode|=(mode<<n); } break;
+                case GL_Q: 
+                    if(param[0]==GL_REFLECTION_MAP || param[0]==GL_NORMAL_MAP || param[0]==GL_SPHERE_MAP) {
+                        errorShim(GL_INVALID_ENUM);
+                        return;
+                    }
+                    glstate->texgen[glstate->texture.active].Q = param[0]; if(mode!=-1) { glstate->fpe_state->texgen_q_mode&=~(7<<n); glstate->fpe_state->texgen_q_mode|=(mode<<n); } break;
                 default:
                     errorShim(GL_INVALID_ENUM);
-                return;
             }
+            return;
+        }
         case GL_OBJECT_PLANE:
             switch (coord) {
                 case GL_S:
@@ -61,32 +85,36 @@ void gl4es_glTexGenfv(GLenum coord, GLenum pname, const GLfloat *param) {
                     break;
                 default:
                     errorShim(GL_INVALID_ENUM);
-                return;
             }
-        case GL_EYE_PLANE:
+            return;
+        case GL_EYE_PLANE: {
+            // need to transform here
+            GLfloat pe[4];
+            vector_matrix(param, getInvMVMat(), pe);
             switch (coord) {
                 case GL_S:
-                    memcpy(glstate->texgen[glstate->texture.active].S_E, param, 4 * sizeof(GLfloat));
+                    memcpy(glstate->texgen[glstate->texture.active].S_E, pe, 4 * sizeof(GLfloat));
                     break;
                 case GL_T:
-                    memcpy(glstate->texgen[glstate->texture.active].T_E, param, 4 * sizeof(GLfloat));
+                    memcpy(glstate->texgen[glstate->texture.active].T_E, pe, 4 * sizeof(GLfloat));
                     break;
                 case GL_R:
-                    memcpy(glstate->texgen[glstate->texture.active].R_E, param, 4 * sizeof(GLfloat));
+                    memcpy(glstate->texgen[glstate->texture.active].R_E, pe, 4 * sizeof(GLfloat));
                     break;
                 case GL_Q:
-                    memcpy(glstate->texgen[glstate->texture.active].Q_E, param, 4 * sizeof(GLfloat));
+                    memcpy(glstate->texgen[glstate->texture.active].Q_E, pe, 4 * sizeof(GLfloat));
                     break;
                 default:
                     errorShim(GL_INVALID_ENUM);
-                return;
+                }
+            return;
             }
         default:
             errorShim(GL_INVALID_ENUM);
     }
 }
 void gl4es_glGetTexGenfv(GLenum coord,GLenum pname,GLfloat *params) {
-    if (glstate->gl_batch || glstate->list.pending)
+    if (glstate->list.pending)
         flush();
     noerrorShim();
 	switch(pname) {
@@ -116,6 +144,7 @@ void gl4es_glGetTexGenfv(GLenum coord,GLenum pname,GLfloat *params) {
                 default:
                     errorShim(GL_INVALID_ENUM);
 			}
+            break;
 		case GL_EYE_PLANE:
 			switch (coord) {
 				case GL_S:
@@ -133,7 +162,7 @@ void gl4es_glGetTexGenfv(GLenum coord,GLenum pname,GLfloat *params) {
                 default:
                     errorShim(GL_INVALID_ENUM);
 			}
-		break;
+		    break;
         default:
             errorShim(GL_INVALID_ENUM);
 	}
@@ -154,25 +183,22 @@ void sphere_loop(const GLfloat *verts, const GLfloat *norm, GLfloat *out, GLint 
         return;
     }*/
     // First get the ModelviewMatrix
-    GLfloat ModelviewMatrix[16], InvModelview[16];
-    gl4es_glGetFloatv(GL_MODELVIEW_MATRIX, InvModelview);
-    // column major -> row major
-    matrix_transpose(InvModelview, ModelviewMatrix);
-    // And get the inverse
-    matrix_inverse(ModelviewMatrix, InvModelview);
+    GLfloat InvModelview[16];
+    matrix_transpose(getInvMVMat(), InvModelview);
+    const GLfloat *ModelviewMatrix = getMVMat();
     GLfloat eye[4], eye_norm[4], reflect[4];
     GLfloat a;
     for (int i=0; i<count; i++) {
 	GLushort k = indices?indices[i]:i;
-        matrix_vector(ModelviewMatrix, verts+k*4, eye);
+        vector_matrix(verts+k*4, ModelviewMatrix, eye);
         vector4_normalize(eye);
         vector3_matrix((norm)?(norm+k*3):glstate->normal, InvModelview, eye_norm);
-        vector4_normalize(eye_norm);
-        a=dot4(eye, eye_norm)*2.0f;
-        for (int j=0; j<4; j++)
+        vector_normalize(eye_norm);
+        a=dot(eye, eye_norm)*2.0f;
+        for (int j=0; j<3; j++)
             reflect[j]=eye[j]-eye_norm[j]*a;
         reflect[2]+=1.0f;
-        a = 0.5f / sqrtf(dot4(reflect, reflect));
+        a = 0.5f / sqrtf(dot(reflect, reflect));
         out[k*4+0] = reflect[0]*a + 0.5f;
         out[k*4+1] = reflect[1]*a + 0.5f;
         out[k*4+2] = 0.0f;
@@ -187,18 +213,14 @@ void reflection_loop(const GLfloat *verts, const GLfloat *norm, GLfloat *out, GL
         printf("LIBGL: GL_REFLECTION_MAP without Normals\n");
         return;
     }*/
-    // First get the ModelviewMatrix
-    GLfloat ModelviewMatrix[16], InvModelview[16];
-    gl4es_glGetFloatv(GL_MODELVIEW_MATRIX, InvModelview);
-    // column major -> row major
-    matrix_transpose(InvModelview, ModelviewMatrix);
-    // And get the inverse
-    matrix_inverse(ModelviewMatrix, InvModelview);
+    GLfloat InvModelview[16];
+    matrix_transpose(InvModelview, getInvMVMat());
+    const GLfloat * ModelviewMatrix = getMVMat();
     GLfloat eye[4], eye_norm[4];
     GLfloat a;
     for (int i=0; i<count; i++) {
 	GLushort k = indices?indices[i]:i;
-        matrix_vector(ModelviewMatrix, verts+k*4, eye);
+        vector_matrix(verts+k*4, ModelviewMatrix, eye);
         vector4_normalize(eye);
         vector3_matrix((norm)?(norm+k*3):glstate->normal, InvModelview, eye_norm);
         vector4_normalize(eye_norm);
@@ -214,18 +236,12 @@ void reflection_loop(const GLfloat *verts, const GLfloat *norm, GLfloat *out, GL
 void eye_loop(const GLfloat *verts, const GLfloat *param, GLfloat *out, GLint count, GLushort *indices) {
     // based on https://www.opengl.org/wiki/Mathematics_of_glTexGen
     // First get the ModelviewMatrix
-    GLfloat ModelviewMatrix[16], InvModelview[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, InvModelview);
-    // column major -> row major
-    matrix_transpose(InvModelview, ModelviewMatrix);
-    // And get the inverse
-    matrix_inverse(ModelviewMatrix, InvModelview);
-    GLfloat plane[4], tmp[4];
-    vector_matrix(param, InvModelview, plane);
+    const GLfloat *ModelviewMatrix = getMVMat();
+    GLfloat tmp[4];
     for (int i=0; i<count; i++) {
 	GLushort k = indices?indices[i]:i;
         matrix_vector(ModelviewMatrix, verts+k*4, tmp);
-        out[k*4]=dot4(plane, tmp);
+        out[k*4]=dot4(param, tmp);
     }
 }
 
@@ -238,14 +254,12 @@ void eye_loop_dual(const GLfloat *verts, const GLfloat *param1, const GLfloat* p
     matrix_transpose(InvModelview, ModelviewMatrix);
     // And get the inverse
     matrix_inverse(ModelviewMatrix, InvModelview);
-    GLfloat plane1[4], plane2[4], tmp[4];
-    vector_matrix(param1, InvModelview, plane1);
-    vector_matrix(param2, InvModelview, plane2);
+    GLfloat tmp[4];
     for (int i=0; i<count; i++) {
 	GLushort k = indices?indices[i]:i;
         matrix_vector(ModelviewMatrix, verts+k*4, tmp);
-        out[k*4+0]=dot4(plane1, tmp);
-        out[k*4+1]=dot4(plane2, tmp);
+        out[k*4+0]=dot4(param1, tmp);
+        out[k*4+1]=dot4(param2, tmp);
     }
 }
 
@@ -264,7 +278,7 @@ static inline void tex_coord_loop(GLfloat *verts, GLfloat *norm, GLfloat *out, G
 }
 
 void gen_tex_coords(GLfloat *verts, GLfloat *norm, GLfloat **coords, GLint count, GLint *needclean, int texture, GLushort *indices, GLuint ilen) {
-//printf("gen_tex_coords(%p, %p, %p, %d, %p, %d, %p, %d) texgen = S:%s T:%s R:%s Q:%s\n", verts, norm, *coords, count, needclean, texture, indices, ilen, (glstate->enable.texgen_s[texture])?PrintEnum(glstate->texgen[texture].S):"-", (glstate->enable.texgen_t[texture])?PrintEnum(glstate->texgen[texture].T):"-", (glstate->enable.texgen_r[texture])?PrintEnum(glstate->texgen[texture].R):"-", (glstate->enable.texgen_q[texture])?PrintEnum(glstate->texgen[texture].Q):"-");
+//printf("gen_tex_coords(%p, %p, %p, %d, %p, %d, %p, %d) texgen = S:%s T:%s R:%s Q:%s, enabled:%c%c%c%c, tex=%02X\n", verts, norm, *coords, count, needclean, texture, indices, ilen, (glstate->enable.texgen_s[texture])?PrintEnum(glstate->texgen[texture].S):"-", (glstate->enable.texgen_t[texture])?PrintEnum(glstate->texgen[texture].T):"-", (glstate->enable.texgen_r[texture])?PrintEnum(glstate->texgen[texture].R):"-", (glstate->enable.texgen_q[texture])?PrintEnum(glstate->texgen[texture].Q):"-", (glstate->enable.texgen_s[texture])?'S':'-', (glstate->enable.texgen_t[texture])?'T':'-', (glstate->enable.texgen_r[texture])?'R':'-', (glstate->enable.texgen_q[texture])?'Q':'-', glstate->enable.texture[texture]);
     // TODO: do less work when called from glDrawElements?
     (*needclean) = 0;
     // special case : no texgen but texture activated, create a simple 1 repeated element
@@ -394,7 +408,7 @@ void gen_tex_clean(GLint cleancode, int texture) {
 		LOAD_GLES(glDisable);
 		gles_glDisable(GL_TEXTURE_GEN_STR);
         // check Texture Matrix
-        if (!(globals4es.texmat || glstate->texture_matrix[texture]->identity)) {
+        if ((hardext.esversion==1) && !(globals4es.texmat || glstate->texture_matrix[texture]->identity)) {
             LOAD_GLES(glLoadIdentity);
             GLenum old_mat = glstate->matrix_mode;
             if(old_mat!=GL_TEXTURE) gl4es_glMatrixMode(GL_TEXTURE);

@@ -1,5 +1,7 @@
 #include "array.h"
 #include "debug.h"
+#include "gl.h"
+#include "state.h"
 
 GLvoid *copy_gl_array(const GLvoid *src,
                       GLenum from, GLsizei width, GLsizei stride,
@@ -77,14 +79,6 @@ GLvoid *copy_gl_array_texcoord(const GLvoid *src,
     GLvoid *dst = (dest)?dest:malloc((count-skip) * to_width * gl_sizeof(to));
     GLsizei from_size = gl_sizeof(from) * width;
     GLsizei to_elem = gl_sizeof(to);
-    //texcoord are now 4 dim, so this should never happens
-/*    if (to_width < width) {
-        printf("Warning: copy_gl_array: %i < %i\n", to_width, width);
-        return NULL;
-    }*/
-						  
-    // if stride is weird, we need to be able to arbitrarily shift src
-    // so we leave it in a uintptr_t and cast after incrementing
     uintptr_t in = (uintptr_t)src;
     in += stride*skip;
     if (from == to && to_width >= width) {
@@ -112,7 +106,7 @@ GLvoid *copy_gl_array_texcoord(const GLvoid *src,
                         out[j] = input[j];
                     }
                     for (int j = width; j < to_width; j++) {
-                        if(j==to_width-1)
+                        if(j==3)
                             memcpy(out+j, filler, to_elem);
                         else
                             out[j] = 0;
@@ -292,35 +286,106 @@ GLfloat *gl_pointer_index(pointer_state_t *p, GLint index) {
 }
 
 
-GLfloat *copy_eval_double(GLenum target, GLint ustride, GLint uorder,
-                          GLint vstride, GLint vorder,
-                          const GLdouble *src) {
-
+GLfloat *copy_eval_double1(GLenum target, GLint ustride, GLint uorder,
+    const GLdouble *src) {
+ 
     GLsizei width = get_map_width(target);
-    GLsizei dwidth = (uorder == 2 && vorder == 2) ? 0 : uorder * vorder;
-    GLsizei hwidth = (uorder > vorder ? uorder : vorder) * width;
-    GLsizei elements;
-    GLsizei uinc = ustride - vorder * vstride;
+    GLfloat* out;
 
-    if (hwidth > dwidth) {
-        elements = (uorder * vorder * width + hwidth);
-    } else {
-        elements = (uorder * vorder * width + dwidth);
-    }
-    GLfloat *points = malloc(elements * sizeof(GLfloat));
-    GLfloat *dst = points;
+    if(!src || !width)
+        return NULL;
 
-    for (int i = 0; i < uorder; i++, src += uinc) {
-        for (int j = 0; j < vorder; j++, src += vstride) {
-            for (int k = 0; k < width; k++) {
-                *dst++ = src[k];
-            }
-        }
-    }
-    return points;
+    out = malloc(uorder*width*sizeof(GLfloat));
+
+    GLfloat *p = out;
+
+    for (int i=0; i<uorder; i++, src+=ustride)
+      for (int k=0; k<width; k++)
+        *p++ = src[k];
+    
+    return out;
 }
 
-void getminmax_indices(GLushort *indices, GLsizei *max, GLsizei *min, GLsizei count) {
+GLfloat *copy_eval_float1(GLenum target, GLint ustride, GLint uorder,
+    const GLfloat *src) {
+ 
+    GLsizei width = get_map_width(target);
+    GLfloat* out;
+
+    if(!src || !width)
+        return NULL;
+
+    out = malloc(uorder*width*sizeof(GLfloat));
+
+    GLfloat *p = out;
+
+    for (int i=0; i<uorder; i++, src+=ustride)
+      for (int k=0; k<width; k++)
+        *p++ = src[k];
+    
+    return out;
+}
+
+GLfloat *copy_eval_double2(GLenum target, GLint ustride, GLint uorder,
+                          GLint vstride, GLint vorder,
+                          const GLdouble *src) {
+    /* Additional memory is allocated to be used by the horner and
+    * de Casteljau evaluation schemes.*/
+    GLsizei width = get_map_width(target);
+    GLfloat* out;
+
+    if(!src || !width)
+        return NULL;
+
+    int dsize = (uorder == 2 && vorder == 2)? 0 : uorder*vorder;
+    int hsize = (uorder > vorder ? uorder : vorder)*width;
+ 
+    if(hsize>dsize)
+      out = malloc((uorder*vorder*width+hsize)*sizeof(GLfloat));
+    else
+      out = malloc((uorder*vorder*width+dsize)*sizeof(GLfloat));
+ 
+    int uinc = ustride - vorder*vstride;
+    GLfloat* p = out;
+ 
+    for (int i=0; i<uorder; i++, src += uinc)
+      for (int j=0; j<vorder; j++, src += vstride)
+        for (int k=0; k<width; k++)
+          *p++ = src[k];
+ 
+    return out;
+}
+GLfloat *copy_eval_float2(GLenum target, GLint ustride, GLint uorder,
+    GLint vstride, GLint vorder,
+    const GLfloat *src) {
+    /* Additional memory is allocated to be used by the horner and
+    * de Casteljau evaluation schemes.*/
+    GLsizei width = get_map_width(target);
+    GLfloat* out;
+
+    if(!src || !width)
+        return NULL;
+    
+    int dsize = (uorder == 2 && vorder == 2)? 0 : uorder*vorder;
+    int hsize = (uorder > vorder ? uorder : vorder)*width;
+
+    if(hsize>dsize)
+        out = malloc((uorder*vorder*width+hsize)*sizeof(GLfloat));
+    else
+        out = malloc((uorder*vorder*width+dsize)*sizeof(GLfloat));
+
+    int uinc = ustride - vorder*vstride;
+    GLfloat* p = out;
+
+    for (int i=0; i<uorder; i++, src += uinc)
+      for (int j=0; j<vorder; j++, src += vstride)
+        for (int k=0; k<width; k++)
+          *p++ = src[k];
+
+    return out;
+}
+
+void getminmax_indices_us(const GLushort *indices, GLsizei *max, GLsizei *min, GLsizei count) {
     if (!count) return;
     *max = indices[0];
     *min = indices[0];
@@ -330,8 +395,25 @@ void getminmax_indices(GLushort *indices, GLsizei *max, GLsizei *min, GLsizei co
         if (n > *max) *max = n;
     }
 }
-void normalize_indices(GLushort *indices, GLsizei *max, GLsizei *min, GLsizei count) {
-    getminmax_indices(indices, max, min, count);
+void normalize_indices_us(GLushort *indices, GLsizei *max, GLsizei *min, GLsizei count) {
+    getminmax_indices_us(indices, max, min, count);
+    for (int i = 0; i < count; i++) {
+        indices[i] -= *min;
+    }
+}
+
+void getminmax_indices_ui(const GLuint *indices, GLsizei *max, GLsizei *min, GLsizei count) {
+    if (!count) return;
+    *max = indices[0];
+    *min = indices[0];
+    for (int i = 1; i < count; i++) {
+        GLsizei n = indices[i];
+        if( n < *min) *min = n;
+        if (n > *max) *max = n;
+    }
+}
+void normalize_indices_ui(GLuint *indices, GLsizei *max, GLsizei *min, GLsizei count) {
+    getminmax_indices_ui(indices, max, min, count);
     for (int i = 0; i < count; i++) {
         indices[i] -= *min;
     }
