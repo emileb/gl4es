@@ -163,6 +163,9 @@ void BuildExtensionsList() {
             strcat(extensions, "GL_EXT_depth_texture ");
             strcat(extensions, "GL_ARB_depth_texture ");
         }
+        if(hardext.elementuint) { // Pass this through
+            strcat(extensions, "GL_OES_element_index_uint ");
+        }
         if(hardext.esversion>1) {
             strcat(extensions, "GL_EXT_fog_coord ");
             strcat(extensions, "GL_EXT_separate_specular_color ");

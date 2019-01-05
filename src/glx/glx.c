@@ -386,7 +386,9 @@ static void signal_handler(int sig) {
 #endif
 
 #ifdef BCMHOST
+#ifndef ANDROID
     rpi_fini();
+#endif
 #endif
 #if !defined(ANDROID) && !defined(AMIGAOS4)
     if (globals4es.stacktrace) {
@@ -442,8 +444,9 @@ void glx_init() {
     kh_put(mapdrawable, MapDrawable, 1, &ret);
     kh_del(mapdrawable, MapDrawable, 1);
 #ifdef BCMHOST
+#ifndef ANDROID
     rpi_init();
-
+#endif
     if (bcm_host) {
         bcm_host_init = dlsym(bcm_host, "bcm_host_init");
         bcm_host_deinit = dlsym(bcm_host, "bcm_host_deinit");

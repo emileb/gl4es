@@ -132,7 +132,7 @@ void initialize_gl4es() {
     glx_init();
 
 #ifdef NOEGL
-    int gl4es_notest = 1;
+    int gl4es_notest = 0;
 #else
     int gl4es_notest = 0;
     char *env_notest = getenv("LIBGL_NOTEST");
@@ -447,6 +447,7 @@ void initialize_gl4es() {
     env(LIBGL_LOGSHADERERROR, globals4es.logshader, "Log to the console Error compiling shaders");
     env(LIBGL_SHADERNOGLES, globals4es.shadernogles, "Remove GLES part in shader");
 
+globals4es.logshader = 1;
 
     globals4es.glxrecycle = 1;
     if((globals4es.usepbuffer) || (globals4es.usefb))
