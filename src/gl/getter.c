@@ -193,6 +193,11 @@ void BuildExtensionsList() {
             "GL_ARB_get_program_binary "
             );
         }
+	    if(hardext.elementuint) {
+				strcat(glstate->extensions,
+				"GL_OES_element_index_uint "
+				);
+		}
         char* p = glstate->extensions;
         glstate->num_extensions = 0;
         // quickly count extensions. Each one is separated by space...
