@@ -198,6 +198,11 @@ void BuildExtensionsList() {
 				"GL_OES_element_index_uint "
 				);
 		}
+		if(hardext.depthstencil) {
+				strcat(glstate->extensions,
+				"GL_OES_packed_depth_stencil "
+				);
+		}
         char* p = glstate->extensions;
         glstate->num_extensions = 0;
         // quickly count extensions. Each one is separated by space...
