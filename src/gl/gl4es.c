@@ -982,7 +982,7 @@ void gl4es_glPolygonMode(GLenum face, GLenum mode) {
 }
 void glPolygonMode(GLenum face, GLenum mode) AliasExport("gl4es_glPolygonMode");
 
-
+__attribute__((visibility("default")))
 void gl4es_flush() {
     if(glstate->list.compiling)
         return;
