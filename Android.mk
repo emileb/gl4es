@@ -8,7 +8,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := GL
+LOCAL_MODULE := GL4ES
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 
@@ -88,14 +88,14 @@ LOCAL_SRC_FILES := \
 	src/glx/gbm.c \
 	src/glx/streaming.c \
 
-LOCAL_CFLAGS += -g -std=c99 -funwind-tables -O3 -fvisibility=hidden -include include/android_debug.h
+LOCAL_CFLAGS += -O3 -g -std=c99 -funwind-tables -fvisibility=hidden -include include/android_debug.h
 LOCAL_CFLAGS += -DNOX11
 LOCAL_CFLAGS += -DNO_GBM
-#LOCAL_CFLAGS += -DNO_INIT_CONSTRUCTOR
-#LOCAL_CFLAGS += -DDEFAULT_ES=2
-
+LOCAL_CFLAGS += -DNO_INIT_CONSTRUCTOR
+LOCAL_CFLAGS += -DDEFAULT_ES=2
+LOCAL_CFLAGS += -DNOEGL
 LOCAL_LDLIBS := -ldl -llog
 #building as a static lib
 
-LOCAL_CFLAGS += -DSTATICLIB
-include $(BUILD_STATIC_LIBRARY)
+#LOCAL_CFLAGS += -DSTATICLIB
+include $(BUILD_SHARED_LIBRARY)

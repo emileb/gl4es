@@ -1,5 +1,7 @@
 #include "matvec.h"
 
+#undef __ARM_NEON__
+
 #include <string.h>
 
 float FASTMATH dot(const float *a, const float *b) {

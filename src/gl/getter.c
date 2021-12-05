@@ -209,6 +209,18 @@ void BuildExtensionsList() {
             "GL_ARB_get_program_binary "
             );
         }
+        if(hardext.elementuint) {
+            strcat(glstate->extensions,
+                   "GL_OES_element_index_uint "
+            );
+        }
+        if(hardext.depthstencil) {
+            strcat(glstate->extensions,
+                   "GL_OES_packed_depth_stencil "
+            );
+        }
+        if(globals4es.npot>=2)
+            strcat(glstate->extensions, "GL_OES_texture_npot ");
         char* p = glstate->extensions;
         glstate->num_extensions = 0;
         // quickly count extensions. Each one is separated by space...

@@ -6,6 +6,8 @@
 #include "light.h"
 #include "state.h"
 
+#undef __ARM_NEON__
+
 GLvoid *copy_gl_array(const GLvoid *src,
                       GLenum from, GLsizei width, GLsizei stride,
                       GLenum to, GLsizei to_width, GLsizei skip, GLsizei count, void* dst) {
