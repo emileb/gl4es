@@ -198,13 +198,13 @@ static const char* gl4es_backSecondaryColorSource =
 "varying lowp vec4 _gl4es_BackSecondaryColor;\n";
 
 static const char* gl4es_texcoordSource =
-"varying mediump vec4 _gl4es_TexCoord[%d];\n";
+"varying highp vec4 _gl4es_TexCoord[%d];\n";
 
 static const char* gl4es_texcoordSourceAlt =
-"varying mediump vec4 _gl4es_TexCoord_%d;\n";
+"varying highp vec4 _gl4es_TexCoord_%d;\n";
 
 static const char* gl4es_fogcoordSource =
-"varying mediump float _gl4es_FogFragCoord;\n";
+"varying highp float _gl4es_FogFragCoord;\n";
 
 static const char* gl4es_ftransformSource = 
 "\n"
