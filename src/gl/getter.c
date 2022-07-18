@@ -203,6 +203,10 @@ void BuildExtensionsList() {
 				"GL_OES_packed_depth_stencil "
 				);
 		}
+
+        if(globals4es.npot>=2)
+            strcat(glstate->extensions, "GL_OES_texture_npot ");
+
         char* p = glstate->extensions;
         glstate->num_extensions = 0;
         // quickly count extensions. Each one is separated by space...
