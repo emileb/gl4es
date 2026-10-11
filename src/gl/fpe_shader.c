@@ -602,7 +602,7 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
     if(point) {
         if(!need_vertex)
             need_vertex = 1;
-        ShadAppend("float ps_d = length(vertex);\n");
+        ShadAppend("highp float ps_d = length(vertex);\n");
         sprintf(buff, "gl_PointSize = clamp(gl_Point.size*inversesqrt(gl_Point.distanceConstantAttenuation + ps_d*(gl_Point.distanceLinearAttenuation + ps_d*gl_Point.distanceQuadraticAttenuation)), gl_Point.sizeMin, gl_Point.sizeMax);\n");
         ShadAppend(buff);
     }
@@ -610,7 +610,7 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
     if(need_vertex) {
         buff[0] = '\0';
         if(need_vertex==1)
-            strcat(buff, "vec4 ");
+            strcat(buff, "highp vec4 ");   // eye-space position: mediump (FP16 on some GPUs) loses precision on big maps
         strcat(buff, "vertex = gl_ModelViewMatrix * gl_Vertex;\n");
         shad = ResizeIfNeeded(shad, &shad_cap, strlen(buff));
         InplaceInsert(GetLine(shad, normal_line + headers), buff);
@@ -639,11 +639,11 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
         char tmp[100];
         for (int j=0; j<4; j++) {
             if(need_objplane[i][j]) {
-                sprintf(tmp, "uniform vec4 _gl4es_ObjectPlane%c_%d;\n", texcoordNAME[j], i);
+                sprintf(tmp, "uniform highp vec4 _gl4es_ObjectPlane%c_%d;\n", texcoordNAME[j], i);
                 strcat(buff, tmp);
             }
             if(need_eyeplane[i][j]) {
-                sprintf(tmp, "uniform vec4 _gl4es_EyePlane%c_%d;\n", texcoordNAME[j], i);
+                sprintf(tmp, "uniform highp vec4 _gl4es_EyePlane%c_%d;\n", texcoordNAME[j], i);
                 strcat(buff, tmp);
             }
         }
@@ -670,7 +670,7 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
             case FPE_FOG_DIST_PLANE: strcpy(fogsrc, "vertex.z"); break;
             default: strcpy(fogsrc, "abs(vertex.z)");
         }
-        sprintf(buff, "float fog_c = %s;\n", fogsrc);
+        sprintf(buff, "highp float fog_c = %s;\n", fogsrc);
         ShadAppend(buff);
         switch(fogmode) {
             case FPE_FOG_EXP:
@@ -680,7 +680,9 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
                 ShadAppend("FogF = clamp(exp(-(gl_Fog.density * fog_c)*(gl_Fog.density * fog_c)), 0., 1.);\n");
                 break;
             case FPE_FOG_LINEAR:
-                ShadAppend("FogF = clamp((gl_Fog.end - fog_c) * gl_Fog.scale, 0., 1.);\n");
+                // Divide instead of using gl_Fog.scale: 1/(end-start) is a denormal in mediump (FP16) once
+                // end-start > 16384 and gets flushed to 0 on some GPUs, fogging the whole screen
+                ShadAppend("FogF = clamp((gl_Fog.end - fog_c) / (gl_Fog.end - gl_Fog.start), 0., 1.);\n");
                 break;
         }
     }

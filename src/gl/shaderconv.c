@@ -156,7 +156,19 @@ static const char* gl4es_FogParametersSource =
 "    mediump float density;\n"
 "    mediump float start;\n"
 "    mediump float end;\n"
-"    mediump float scale;\n"   // Derived:   1.0 / (end - start) 
+"    mediump float scale;\n"   // Derived:   1.0 / (end - start)
+"};\n"
+"uniform gl_FogParameters gl_Fog;\n";
+
+// Used when the fragment shader supports highp (the struct is shared by both stages, so precision must match).
+// mediump is FP16 on some GPUs: small densities/scales get flushed to 0 and end > 65504 overflows
+static const char* gl4es_FogParametersSourceHighp =
+"struct gl_FogParameters {\n"
+"    lowp vec4 color;\n"
+"    highp float density;\n"
+"    highp float start;\n"
+"    highp float end;\n"
+"    highp float scale;\n"   // Derived:   1.0 / (end - start)
 "};\n"
 "uniform gl_FogParameters gl_Fog;\n";
 
@@ -677,9 +689,10 @@ if(strstr(Tmp, gl4es_hack2)) {
     Tmp = InplaceReplace(Tmp, &tmpsize, "gl_Point", "_gl4es_Point");
   if(strstr(Tmp, "gl_FogParameters") || strstr(Tmp, "gl_Fog"))
     {
-      Tmp = ResizeIfNeeded(Tmp, &tmpsize, strlen(gl4es_FogParametersSource));
-      InplaceInsert(GetLine(Tmp, headline), gl4es_FogParametersSource);
-      headline+=CountLine(gl4es_FogParametersSource);
+      const char* fogParametersSource = hardext.highp?gl4es_FogParametersSourceHighp:gl4es_FogParametersSource;
+      Tmp = ResizeIfNeeded(Tmp, &tmpsize, strlen(fogParametersSource));
+      InplaceInsert(GetLine(Tmp, headline), fogParametersSource);
+      headline+=CountLine(fogParametersSource);
       Tmp = InplaceReplace(Tmp, &tmpsize, "gl_FogParameters", "_gl4es_FogParameters");
     }
   if(strstr(Tmp, "gl_Fog"))
