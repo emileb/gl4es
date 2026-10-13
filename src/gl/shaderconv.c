@@ -160,8 +160,7 @@ static const char* gl4es_FogParametersSource =
 "};\n"
 "uniform gl_FogParameters gl_Fog;\n";
 
-// Used when the fragment shader supports highp (the struct is shared by both stages, so precision must match).
-// mediump is FP16 on some GPUs: small densities/scales get flushed to 0 and end > 65504 overflows
+// highp when the FS supports it (precision must match across stages); FP16 mediump flushes tiny fog densities
 static const char* gl4es_FogParametersSourceHighp =
 "struct gl_FogParameters {\n"
 "    lowp vec4 color;\n"

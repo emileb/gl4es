@@ -610,7 +610,7 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
     if(need_vertex) {
         buff[0] = '\0';
         if(need_vertex==1)
-            strcat(buff, "highp vec4 ");   // eye-space position: mediump (FP16 on some GPUs) loses precision on big maps
+            strcat(buff, "highp vec4 ");   // FP16 mediump loses precision on big maps
         strcat(buff, "vertex = gl_ModelViewMatrix * gl_Vertex;\n");
         shad = ResizeIfNeeded(shad, &shad_cap, strlen(buff));
         InplaceInsert(GetLine(shad, normal_line + headers), buff);
@@ -680,8 +680,7 @@ const char* const* fpe_VertexShader(fpe_state_t *state) {
                 ShadAppend("FogF = clamp(exp(-(gl_Fog.density * fog_c)*(gl_Fog.density * fog_c)), 0., 1.);\n");
                 break;
             case FPE_FOG_LINEAR:
-                // Divide instead of using gl_Fog.scale: 1/(end-start) is a denormal in mediump (FP16) once
-                // end-start > 16384 and gets flushed to 0 on some GPUs, fogging the whole screen
+                // Not gl_Fog.scale: 1/(end-start) underflows mediump (FP16) on some GPUs, fogging the whole screen
                 ShadAppend("FogF = clamp((gl_Fog.end - fog_c) / (gl_Fog.end - gl_Fog.start), 0., 1.);\n");
                 break;
         }
